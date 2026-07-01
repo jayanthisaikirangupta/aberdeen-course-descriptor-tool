@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Course Descriptor Builder · University of Aberdeen</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#eceef1;font-family:Calibri,Carlito,"Segoe UI",system-ui,sans-serif;color:#1b1f24}
+  header{background:#0d2742;color:#fff;padding:0 26px;display:flex;align-items:center;gap:12px;height:62px}
+  header .logo{width:32px;height:32px;border-radius:7px;background:#fff;color:#0d2742;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px}
+  header h1{font-size:15px;margin:0;font-weight:700}
+  header .sub{font-size:11px;color:#8fa3bb}
+  main{max-width:960px;margin:26px auto;padding:0 22px 60px}
+  .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:18px;align-items:start}
+  .card{background:#fff;border:1px solid #dde1e6;border-radius:11px;padding:20px;margin-bottom:18px}
+  .card h2{font-size:13px;color:#12345c;margin:0 0 14px;text-transform:uppercase;letter-spacing:.04em}
+  label{display:block;font-size:11px;font-weight:700;color:#5b636c;margin:12px 0 5px;text-transform:uppercase;letter-spacing:.04em}
+  label:first-child{margin-top:0}
+  input,textarea,select{width:100%;border:1px solid #dde1e6;border-radius:8px;padding:9px 11px;font-size:14px;font-family:inherit;color:#1b1f24;background:#fff}
+  textarea{resize:vertical}
+  .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;letter-spacing:.03em}
+  .seg{display:flex;border:1px solid #dde1e6;border-radius:8px;overflow:hidden}
+  .seg button{flex:1;border:none;padding:9px;background:#fff;color:#5b636c;font:600 13px inherit;cursor:pointer}
+  .seg button.on{background:#12345c;color:#fff}
+  .row{display:flex;gap:10px}
+  .btnbar{display:flex;gap:10px;justify-content:flex-end;margin-top:6px}
+  .btn{display:inline-flex;align-items:center;gap:7px;border:none;border-radius:9px;padding:12px 22px;font:700 14px inherit;cursor:pointer}
+  .btn.primary{background:#12345c;color:#fff}
+  .btn.ghost{background:#fff;color:#3a424b;border:1px solid #dde1e6}
+  .btn:disabled{opacity:.5;cursor:default}
+  #results{margin-top:18px}
+  .crow{display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid #eef0f2;border-radius:9px;margin-bottom:8px;background:#fff;font-size:14px}
+  .dot{width:24px;height:24px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff}
+  .dot.done{background:#1f7a52}.dot.error{background:#cf5642}.dot.fetching{background:#c98a2b}
+  .crow code{font-weight:700}
+  .crow .grow{flex:1;min-width:0}
+  .crow .err{color:#b23a2a;font-size:12.5px}
+  .manual{margin-top:8px}
+  .manual input{font-size:12px}
+  .note{font-size:12px;color:#8a929b;margin-top:6px}
+  .spinner{width:16px;height:16px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;display:inline-block}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">A</div>
+  <div><h1>Course Descriptor Builder</h1><div class="sub">University of Aberdeen · runs on your machine</div></div>
+</header>
+
+<main>
+  <form id="form">
+    <div class="grid">
+      <div class="card">
+        <h2>Courses &amp; catalogue</h2>
+        <label>Level</label>
+        <div class="seg" id="seg">
+          <button type="button" data-v="undergraduate">Undergraduate</button>
+          <button type="button" data-v="postgraduate">Postgraduate</button>
+        </div>
+        <input type="hidden" name="level" id="level" value="{{ cfg.level }}">
+        <label>Academic year</label>
+        <select name="year">
+          {% for y in ["2021-2022","2022-2023","2023-2024","2024-2025","2025-2026"] %}
+            <option {% if y==cfg.year %}selected{% endif %}>{{ y }}</option>
+          {% endfor %}
+        </select>
+        <label>Course IDs <span style="font-weight:400;color:#8a929b">— one per line or comma-separated</span></label>
+        <textarea name="courses" rows="6" class="mono">{{ courses_text }}</textarea>
+        <div class="note">Codes keep the case you type (e.g. <b>An3009</b>); the catalogue is case-sensitive.</div>
+      </div>
+
+      <div class="card">
+        <h2>Document cover page</h2>
+        <label>Student name</label>
+        <input name="student" value="{{ cfg.cover.student }}">
+        <label>Degree title</label>
+        <input name="degree" value="{{ cfg.cover.degree }}">
+        <div class="row">
+          <div style="flex:1"><label>Compiled by</label><input name="compiled_by" value="{{ cfg.cover.compiled_by }}"></div>
+          <div style="width:140px"><label>Date</label><input name="date" value="{{ cfg.cover.date }}"></div>
+        </div>
+        <label>Position</label>
+        <input name="position" value="{{ cfg.cover.position }}">
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Prefix → subject mapping</h2>
+      <label>One rule per line — <span style="font-weight:400;color:#8a929b">PREFIX = subject_path</span></label>
+      <textarea name="prefix_map" rows="5" class="mono">{{ prefix_text }}</textarea>
+      <div class="note">Subjects use the exact text written here (e.g. <b>Anatomy</b>, <b>computing_science</b>).</div>
+    </div>
+
+    <div class="btnbar">
+      <button type="button" class="btn ghost" id="checkBtn">Check URLs &amp; fetch</button>
+      <button type="button" class="btn primary" id="genBtn">Generate &amp; download .docx</button>
+    </div>
+  </form>
+
+  <div id="results"></div>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const form = $('#form');
+
+// level segmented control
+const seg = $('#seg'), levelInput = $('#level');
+function paintSeg(){ [...seg.children].forEach(b=>b.classList.toggle('on', b.dataset.v===levelInput.value)); }
+seg.addEventListener('click', e=>{ if(e.target.dataset.v){ levelInput.value=e.target.dataset.v; paintSeg(); }});
+paintSeg();
+
+function fd(){ return new FormData(form); }
+
+function renderResults(data, {downloaded}={}){
+  const box = $('#results');
+  let html = '<div class="card"><h2>Results</h2>';
+  if(downloaded) html += '<div class="crow"><div class="dot done">&#10003;</div><div class="grow"><b>Document downloaded.</b> Check your browser downloads.</div></div>';
+  (data.courses||[]).forEach(c=>{
+    html += `<div class="crow"><div class="dot done">&#10003;</div><div class="grow"><code>${c.id}</code> &nbsp; ${c.title} <span style="color:#8a929b">· ${c.cp} cp</span></div></div>`;
+  });
+  (data.errors||[]).forEach(e=>{
+    html += `<div class="crow" style="border-color:#f0c4bc;background:#fdf3f1;flex-wrap:wrap">
+      <div class="dot error">!</div>
+      <div class="grow"><code>${e.code}</code> <span class="err">Not fetched</span><div class="err">${e.message}</div></div>
+      <div class="manual" style="flex-basis:100%">
+        <input class="mono" placeholder="Paste the correct catalogue URL for ${e.code} and re-run"
+               data-code="${e.code}" value="${(currentManual[e.code]||'')}">
+      </div></div>`;
+  });
+  html += '</div>';
+  box.innerHTML = html;
+  box.querySelectorAll('input[data-code]').forEach(inp=>{
+    inp.addEventListener('change', ()=>{ currentManual[inp.dataset.code]=inp.value.trim(); });
+  });
+}
+
+let currentManual = {};
+function withManual(){ const f=fd(); for(const [k,v] of Object.entries(currentManual)){ if(v) f.append('manual_'+k, v); } return f; }
+
+function busy(btn, on, label){ btn.disabled=on; btn.innerHTML = on ? '<span class="spinner"></span> '+label : btn.dataset.label; }
+
+$('#checkBtn').dataset.label = $('#checkBtn').innerHTML;
+$('#genBtn').dataset.label = $('#genBtn').innerHTML;
+
+$('#checkBtn').addEventListener('click', async ()=>{
+  busy($('#checkBtn'), true, 'Fetching…');
+  try{
+    const r = await fetch('/preview', {method:'POST', body:withManual()});
+    const data = await r.json();
+    renderResults(data);
+  }catch(err){ alert('Error: '+err); }
+  busy($('#checkBtn'), false);
+});
+
+$('#genBtn').addEventListener('click', async ()=>{
+  busy($('#genBtn'), true, 'Building…');
+  try{
+    const r = await fetch('/generate', {method:'POST', body:withManual()});
+    if(r.ok && r.headers.get('content-type').includes('word')){
+      const blob = await r.blob();
+      const cd = r.headers.get('content-disposition')||'';
+      const m = cd.match(/filename="?([^"]+)"?/);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = m ? m[1] : 'Module_Descriptors.docx';
+      document.body.appendChild(a); a.click(); a.remove();
+      // also show which courses made it / failed
+      const chk = await fetch('/preview', {method:'POST', body:withManual()});
+      renderResults(await chk.json(), {downloaded:true});
+    } else {
+      const data = await r.json();
+      renderResults(data);
+      alert(data.message || 'Some courses could not be fetched — see results.');
+    }
+  }catch(err){ alert('Error: '+err); }
+  busy($('#genBtn'), false);
+});
+</script>
+</body>
+</html>
