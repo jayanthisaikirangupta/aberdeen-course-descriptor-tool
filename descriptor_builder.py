@@ -367,8 +367,12 @@ def _add_page_number(paragraph):
     run._r.append(f1); run._r.append(instr); run._r.append(f2)
 
 
-def _set_cell_border(cell):
-    """Draw a single black border on all four sides of a table cell."""
+def _set_cell_border(cell, edges=("top", "left", "bottom", "right")):
+    """Draw a single black border on the given sides of a table cell.
+
+    Pass ``edges`` to control which edges are drawn — omit e.g. ``"right"``
+    to suppress the divider between two adjacent cells in the same row.
+    """
     tcPr = cell._tc.get_or_add_tcPr()
     existing = tcPr.find(qn("w:tcBorders"))
     if existing is not None:
@@ -376,10 +380,13 @@ def _set_cell_border(cell):
     borders = OxmlElement("w:tcBorders")
     for edge in ("top", "left", "bottom", "right"):
         el = OxmlElement(f"w:{edge}")
-        el.set(qn("w:val"), "single")
-        el.set(qn("w:sz"), "4")
-        el.set(qn("w:space"), "0")
-        el.set(qn("w:color"), "000000")
+        if edge in edges:
+            el.set(qn("w:val"), "single")
+            el.set(qn("w:sz"), "4")
+            el.set(qn("w:space"), "0")
+            el.set(qn("w:color"), "000000")
+        else:
+            el.set(qn("w:val"), "nil")
         borders.append(el)
     tcPr.append(borders)
 
@@ -484,10 +491,12 @@ def _course_table(doc, course):
     _plain_in(body, "Resit Assessments")
     _text_in(body, course["resit"])
 
-    # ---- borders on every cell ----
-    for row in tbl.rows:
-        for cell in row.cells:
-            _set_cell_border(cell)
+    # ---- borders: outer frame only on the header row (no verticals between
+    # code / title / credits); full frame on the merged content row ----
+    _set_cell_border(hdr[0], edges=("top", "left", "bottom"))
+    _set_cell_border(hdr[1], edges=("top", "bottom"))
+    _set_cell_border(hdr[2], edges=("top", "right", "bottom"))
+    _set_cell_border(body, edges=("top", "left", "bottom", "right"))
 
     # trailing spacer so consecutive tables don't touch
     doc.add_paragraph()
@@ -517,11 +526,15 @@ def build_document(cover, courses, years, logo_path=None):
     sec.top_margin = Inches(0.7); sec.bottom_margin = Inches(1.0)
     sec.left_margin = Inches(0.9); sec.right_margin = Inches(0.9)
 
-    # repeating header logo
+    # repeating header logo, with breathing room below so body text
+    # doesn't crowd it on any page
     hp = sec.header.paragraphs[0]
     hp.alignment = WD_ALIGN_PARAGRAPH.CENTER
     if logo_path and os.path.exists(logo_path):
         hp.add_run().add_picture(logo_path, width=Inches(2.3))
+    spacer = sec.header.add_paragraph()
+    spacer.paragraph_format.space_before = Pt(0)
+    spacer.paragraph_format.space_after = Pt(12)
 
     # repeating footer: centered page number, then a left-aligned student block
     footer = sec.footer

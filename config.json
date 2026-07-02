@@ -2,8 +2,8 @@
   "level": "undergraduate",
   "years": [
     {
-      "year": "2024-2025",
-      "courses": ["CS1032", "EG1008", "AN3009"]
+      "year": "2025-2026",
+      "courses": []
     }
   ],
   "prefix_map": {
@@ -17,10 +17,10 @@
   },
   "manual_urls": {},
   "cover": {
-    "student": "Roberts Brencevs",
-    "degree": "Bachelor of Engineering in Engineering (Electrical and Electronic)",
-    "compiled_by": "Mithila Mohan",
-    "position": "University of Aberdeen Infohub Helpdesk Coordinator",
-    "date": "15/06/2026"
+    "student": "",
+    "degree": "",
+    "compiled_by": "",
+    "position": "",
+    "date": ""
   }
 }
