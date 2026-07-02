@@ -55,7 +55,7 @@ def index():
         "index.html",
         cfg=cfg,
         year_groups=year_groups,
-        year_options=["2021-2022", "2022-2023", "2023-2024", "2024-2025", "2025-2026"],
+        year_options=[f"{y}-{y+1}" for y in range(2025, 2002, -1)],
         prefix_text="\n".join(f"{k} = {v}" for k, v in cfg.get("prefix_map", {}).items()),
     )
 
