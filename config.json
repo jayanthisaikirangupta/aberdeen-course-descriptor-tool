@@ -1,10 +1,10 @@
 {
   "level": "undergraduate",
-  "year": "2024-2025",
-  "courses": [
-    "CS1032",
-    "EG1008",
-    "AN3009"
+  "years": [
+    {
+      "year": "2024-2025",
+      "courses": ["CS1032", "EG1008", "AN3009"]
+    }
   ],
   "prefix_map": {
     "CS": "computing_science",

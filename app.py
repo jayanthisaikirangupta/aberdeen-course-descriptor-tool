@@ -25,19 +25,53 @@ def load_config():
         return json.load(f)
 
 
+def _normalise_year_groups(cfg):
+    """Accept legacy {year, courses} config and return a list of year groups."""
+    groups = cfg.get("years")
+    if groups:
+        return [
+            {
+                "year": g.get("year", "").strip(),
+                "courses": [c.strip() for c in g.get("courses", []) if c and c.strip()],
+            }
+            for g in groups
+            if g.get("year")
+        ]
+    if cfg.get("year"):
+        return [{
+            "year": cfg["year"],
+            "courses": [c.strip() for c in cfg.get("courses", []) if c and c.strip()],
+        }]
+    return []
+
+
 @app.route("/")
 def index():
     cfg = load_config()
+    year_groups = _normalise_year_groups(cfg)
+    if not year_groups:
+        year_groups = [{"year": "2024-2025", "courses": []}]
     return render_template(
         "index.html",
         cfg=cfg,
-        courses_text="\n".join(cfg.get("courses", [])),
+        year_groups=year_groups,
+        year_options=["2021-2022", "2022-2023", "2023-2024", "2024-2025", "2025-2026"],
         prefix_text="\n".join(f"{k} = {v}" for k, v in cfg.get("prefix_map", {}).items()),
     )
 
 
 def _parse_form(form):
-    courses = [c.strip() for c in form.get("courses", "").replace(",", "\n").splitlines() if c.strip()]
+    years_raw = form.getlist("years[]")
+    courses_raw = form.getlist("courses[]")
+    year_groups = []
+    for i, y in enumerate(years_raw):
+        y = (y or "").strip()
+        if not y:
+            continue
+        raw = courses_raw[i] if i < len(courses_raw) else ""
+        codes = [c.strip() for c in raw.replace(",", "\n").splitlines() if c.strip()]
+        if codes:
+            year_groups.append({"year": y, "courses": codes})
     prefix_map = {}
     for line in form.get("prefix_map", "").splitlines():
         if "=" in line:
@@ -52,8 +86,7 @@ def _parse_form(form):
                 manual_urls[code] = form.get(key).strip()
     config = {
         "level": form.get("level", "undergraduate"),
-        "year": form.get("year", "2024-2025"),
-        "courses": courses,
+        "years": year_groups,
         "prefix_map": prefix_map,
         "manual_urls": manual_urls,
         "cover": {
@@ -74,7 +107,8 @@ def preview():
     courses, errors = core.build_all(config)
     return jsonify({
         "courses": [{"id": c["id"], "title": c["title"], "cp": c["cp"],
-                     "ects": c["ects"], "url": c["url"]} for c in courses],
+                     "ects": c["ects"], "url": c["url"],
+                     "year": c.get("year", "")} for c in courses],
         "errors": errors,
     })
 
@@ -87,7 +121,7 @@ def generate():
     if not courses:
         return jsonify({"ok": False, "errors": errors,
                         "message": "No courses could be fetched."}), 422
-    doc = core.build_document(config["cover"], courses, config["year"])
+    doc = core.build_document(config["cover"], courses, config["years"])
     buf = io.BytesIO()
     doc.save(buf)
     buf.seek(0)

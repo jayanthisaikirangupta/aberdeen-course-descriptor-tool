@@ -312,34 +312,47 @@ def parse_course(html, code, url):
 # --------------------------------------------------------------------------- #
 #  Orchestration                                                              #
 # --------------------------------------------------------------------------- #
+def _year_groups(config):
+    """Return the config's year groups, translating legacy {year, courses}."""
+    groups = config.get("years")
+    if groups:
+        return [g for g in groups if g.get("year") and g.get("courses")]
+    if config.get("year") and config.get("courses"):
+        return [{"year": config["year"], "courses": config["courses"]}]
+    return []
+
+
 def build_all(config, manual_urls=None, progress=None):
     """Fetch + parse every course. Returns (courses, errors).
 
-    progress: optional callback(code, status, message) for live updates.
+    Each course dict carries a ``year`` field indicating the academic year it
+    was fetched under. progress: optional callback(code, status, message).
     """
     manual_urls = manual_urls or config.get("manual_urls", {})
     level = config["level"]
-    year = config["year"]
     prefix_map = config.get("prefix_map", {})
     session = requests.Session()
 
     courses, errors = [], []
-    for code in config["courses"]:
-        code = code.strip()
-        if not code:
-            continue
-        if progress:
-            progress(code, "fetching", "")
-        try:
-            url, html = fetch_html(code, level, year, prefix_map, manual_urls, session)
-            course = parse_course(html, code, url)
-            courses.append(course)
+    for group in _year_groups(config):
+        year = group["year"]
+        for code in group["courses"]:
+            code = code.strip()
+            if not code:
+                continue
             if progress:
-                progress(code, "done", course["title"])
-        except CourseNotFound as e:
-            errors.append({"code": code.upper(), "message": str(e)})
-            if progress:
-                progress(code, "error", str(e))
+                progress(code, "fetching", "")
+            try:
+                url, html = fetch_html(code, level, year, prefix_map, manual_urls, session)
+                course = parse_course(html, code, url)
+                course["year"] = year
+                courses.append(course)
+                if progress:
+                    progress(code, "done", course["title"])
+            except CourseNotFound as e:
+                errors.append({"code": code.upper(), "year": year, "message": str(e)})
+                if progress:
+                    progress(code, "error", str(e))
     return courses, errors
 
 
@@ -480,10 +493,20 @@ def _course_table(doc, course):
     doc.add_paragraph()
 
 
-def build_document(cover, courses, year, logo_path=None):
-    """Build the Module Descriptors document and return a python-docx Document."""
+def build_document(cover, courses, years, logo_path=None):
+    """Build the Module Descriptors document and return a python-docx Document.
+
+    ``years`` may be either a single academic-year string (legacy) or a list of
+    ``{year, courses}`` dicts. Courses are grouped by their ``year`` attribute
+    (which build_all sets); each group is preceded by a bold "Year N" heading.
+    """
     if logo_path is None:
         logo_path = os.path.join(HERE, "assets", "aberdeen-logo.jpeg")
+
+    if isinstance(years, str):
+        year_list = [years] if years else []
+    else:
+        year_list = [g["year"] for g in (years or []) if g.get("year")]
 
     doc = Document()
     normal = doc.styles["Normal"]
@@ -551,12 +574,40 @@ def build_document(cover, courses, year, logo_path=None):
 
     doc.add_page_break()
     intro_year = doc.add_paragraph()
-    r = intro_year.add_run("The following descriptions are correct for the academic year " + year + ":")
+    if len(year_list) == 1:
+        msg = "The following descriptions are correct for the academic year " + year_list[0] + ":"
+    elif len(year_list) > 1:
+        msg = ("The following descriptions are correct for the academic years "
+               + ", ".join(year_list[:-1]) + " and " + year_list[-1] + ":")
+    else:
+        msg = "The following descriptions are correct as of the year(s) of study below:"
+    r = intro_year.add_run(msg)
     r.bold = True
 
-    # ---- course sections ----
+    # ---- course sections, grouped by year ----
+    grouped, order = {}, []
     for c in courses:
-        _course_table(doc, c)
+        y = c.get("year", "")
+        if y not in grouped:
+            grouped[y] = []
+            order.append(y)
+        grouped[y].append(c)
+
+    # keep the order the user typed the year groups in, then any strays
+    ordered_years = [y for y in year_list if y in grouped]
+    ordered_years += [y for y in order if y not in ordered_years]
+
+    for idx, y in enumerate(ordered_years, start=1):
+        if len(ordered_years) > 1 or y:
+            heading = doc.add_paragraph()
+            label = f"Year {idx}"
+            if y:
+                label += f" ({y})"
+            hr = heading.add_run(label)
+            hr.bold = True
+            hr.font.size = Pt(13)
+        for c in grouped[y]:
+            _course_table(doc, c)
 
     return doc
 
@@ -577,8 +628,10 @@ def main():
         icon = {"fetching": "...", "done": " ok", "error": "ERR"}.get(status, "   ")
         print(f"  [{icon}] {code}{'  ' + msg if msg else ''}")
 
-    print(f"Fetching {len(config['courses'])} course(s) "
-          f"({config['level']} {config['year']})...")
+    groups = _year_groups(config)
+    total = sum(len(g["courses"]) for g in groups)
+    years_txt = ", ".join(g["year"] for g in groups) or "no years configured"
+    print(f"Fetching {total} course(s) ({config['level']} — {years_txt})...")
     courses, errors = build_all(config, progress=show)
 
     if not courses:
@@ -591,7 +644,7 @@ def main():
     out_dir = os.path.join(HERE, "output")
     os.makedirs(out_dir, exist_ok=True)
     cover = config["cover"]
-    doc = build_document(cover, courses, config["year"])
+    doc = build_document(cover, courses, groups)
     out_path = os.path.join(out_dir, "Module_Descriptors_" + safe_name(cover.get("student")) + ".docx")
     doc.save(out_path)
 

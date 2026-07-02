@@ -4,127 +4,675 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Course Descriptor Builder · University of Aberdeen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 <style>
+  :root{
+    --navy:#0d2742;
+    --navy-2:#12345c;
+    --navy-3:#1c4d7f;
+    --accent:#2b6cb0;
+    --ink:#1b1f24;
+    --ink-2:#2a3441;
+    --muted:#6b7280;
+    --sub:#8a929b;
+    --line:#e4e7ec;
+    --line-2:#eef0f3;
+    --bg:#f6f7fb;
+    --tint:#f7f9fc;
+    --surface:#ffffff;
+    --success:#1f7a52;
+    --success-bg:#e8f4ee;
+    --danger:#cf5642;
+    --danger-bg:#fdf3f1;
+    --danger-line:#f0c4bc;
+    --warn:#c98a2b;
+    --shadow-xs:0 1px 2px rgba(15,32,58,.04);
+    --shadow-sm:0 1px 2px rgba(15,32,58,.05), 0 1px 3px rgba(15,32,58,.06);
+    --shadow-md:0 4px 10px rgba(15,32,58,.06), 0 10px 30px rgba(15,32,58,.06);
+    --shadow-lg:0 20px 40px rgba(15,32,58,.10), 0 40px 80px rgba(15,32,58,.08);
+    --sidebar-w:260px;
+  }
   *{box-sizing:border-box}
-  body{margin:0;background:#eceef1;font-family:Calibri,Carlito,"Segoe UI",system-ui,sans-serif;color:#1b1f24}
-  header{background:#0d2742;color:#fff;padding:0 26px;display:flex;align-items:center;gap:12px;height:62px}
-  header .logo{width:32px;height:32px;border-radius:7px;background:#fff;color:#0d2742;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px}
-  header h1{font-size:15px;margin:0;font-weight:700}
-  header .sub{font-size:11px;color:#8fa3bb}
-  main{max-width:960px;margin:26px auto;padding:0 22px 60px}
-  .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:18px;align-items:start}
-  .card{background:#fff;border:1px solid #dde1e6;border-radius:11px;padding:20px;margin-bottom:18px}
-  .card h2{font-size:13px;color:#12345c;margin:0 0 14px;text-transform:uppercase;letter-spacing:.04em}
-  label{display:block;font-size:11px;font-weight:700;color:#5b636c;margin:12px 0 5px;text-transform:uppercase;letter-spacing:.04em}
-  label:first-child{margin-top:0}
-  input,textarea,select{width:100%;border:1px solid #dde1e6;border-radius:8px;padding:9px 11px;font-size:14px;font-family:inherit;color:#1b1f24;background:#fff}
-  textarea{resize:vertical}
-  .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;letter-spacing:.03em}
-  .seg{display:flex;border:1px solid #dde1e6;border-radius:8px;overflow:hidden}
-  .seg button{flex:1;border:none;padding:9px;background:#fff;color:#5b636c;font:600 13px inherit;cursor:pointer}
-  .seg button.on{background:#12345c;color:#fff}
-  .row{display:flex;gap:10px}
-  .btnbar{display:flex;gap:10px;justify-content:flex-end;margin-top:6px}
-  .btn{display:inline-flex;align-items:center;gap:7px;border:none;border-radius:9px;padding:12px 22px;font:700 14px inherit;cursor:pointer}
-  .btn.primary{background:#12345c;color:#fff}
-  .btn.ghost{background:#fff;color:#3a424b;border:1px solid #dde1e6}
-  .btn:disabled{opacity:.5;cursor:default}
-  #results{margin-top:18px}
-  .crow{display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid #eef0f2;border-radius:9px;margin-bottom:8px;background:#fff;font-size:14px}
-  .dot{width:24px;height:24px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff}
-  .dot.done{background:#1f7a52}.dot.error{background:#cf5642}.dot.fetching{background:#c98a2b}
-  .crow code{font-weight:700}
+  html,body{height:100%}
+  body{
+    margin:0;
+    background:var(--bg);
+    font-family:'Inter','Segoe UI',system-ui,sans-serif;
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    overflow-x:hidden;
+  }
+
+  /* ---------- app shell ---------- */
+  .app{display:grid;grid-template-columns:var(--sidebar-w) 1fr;min-height:100vh}
+
+  /* ---------- sidebar ---------- */
+  .sidebar{
+    background:linear-gradient(180deg,#0a1f36 0%,#0d2742 60%,#12345c 100%);
+    color:#e5ecf5;
+    padding:24px 20px;
+    display:flex;flex-direction:column;gap:22px;
+    position:sticky;top:0;height:100vh;
+    box-shadow:8px 0 24px rgba(10,31,54,.14);
+    z-index:15;
+  }
+  .brand{display:flex;align-items:center;gap:12px}
+  .brand .mark{
+    width:40px;height:40px;border-radius:10px;
+    background:#fff;color:var(--navy);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:18px;letter-spacing:-.02em;
+    box-shadow:0 6px 16px rgba(0,0,0,.18);
+  }
+  .brand h1{font-size:15px;margin:0;font-weight:700;letter-spacing:-.01em;color:#fff}
+  .brand .sub{font-size:11px;color:#8fa3bb;margin-top:2px}
+
+  .side-section{margin-top:4px}
+  .side-label{
+    font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+    color:#7a8fa9;font-weight:700;margin-bottom:10px;padding:0 8px;
+  }
+  .steps{display:flex;flex-direction:column;gap:2px}
+  .step{
+    display:flex;align-items:center;gap:11px;
+    padding:9px 10px;border-radius:9px;
+    font-size:13px;font-weight:500;color:#c1cee0;
+    cursor:pointer;transition:background .15s, color .15s;
+    text-decoration:none;
+    border:1px solid transparent;
+  }
+  .step:hover{background:rgba(255,255,255,.05);color:#fff}
+  .step.active{background:rgba(255,255,255,.08);color:#fff;border-color:rgba(255,255,255,.08)}
+  .step .num{
+    width:22px;height:22px;flex:none;border-radius:50%;
+    background:rgba(255,255,255,.08);color:#c1cee0;
+    display:flex;align-items:center;justify-content:center;
+    font-size:11px;font-weight:700;
+    transition:background .2s, color .2s;
+  }
+  .step.active .num, .step.done .num{background:#22a06b;color:#fff;box-shadow:0 0 0 4px rgba(34,160,107,.18)}
+
+  .side-card{
+    margin-top:auto;
+    padding:14px 14px 13px;
+    border-radius:12px;
+    background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.08);
+    font-size:12px;color:#b5c4d6;line-height:1.5;
+  }
+  .side-card b{color:#fff;font-weight:600}
+  .side-card .pill{
+    display:inline-flex;align-items:center;gap:6px;font-size:10.5px;
+    padding:4px 9px;border-radius:999px;
+    background:rgba(74,222,128,.14);color:#7be3a3;
+    border:1px solid rgba(74,222,128,.25);margin-bottom:8px;
+  }
+  .side-card .pill .dot{width:5px;height:5px;border-radius:50%;background:#4ade80;box-shadow:0 0 0 3px rgba(74,222,128,.18)}
+
+  /* ---------- main ---------- */
+  .main{display:flex;flex-direction:column;min-width:0}
+  .topbar{
+    display:flex;align-items:center;gap:16px;
+    padding:16px 32px;
+    background:rgba(255,255,255,.72);
+    border-bottom:1px solid var(--line);
+    position:sticky;top:0;z-index:10;
+    backdrop-filter:saturate(180%) blur(10px);
+    -webkit-backdrop-filter:saturate(180%) blur(10px);
+  }
+  .crumbs{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:8px}
+  .crumbs b{color:var(--ink);font-weight:600}
+  .crumbs .sep{color:#c4cbd4}
+  .topbar .spacer{flex:1}
+  .toolbtn{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:9px 14px;border-radius:10px;
+    border:1px solid var(--line);background:#fff;color:var(--ink-2);
+    font:600 13px inherit;cursor:pointer;
+    transition:background .15s, border-color .15s, transform .12s, box-shadow .18s;
+  }
+  .toolbtn:hover:not(:disabled){background:var(--tint);border-color:#cfd5de}
+  .toolbtn.primary{
+    background:linear-gradient(135deg,var(--navy-2) 0%,var(--navy-3) 100%);
+    color:#fff;border-color:transparent;
+    box-shadow:0 6px 16px rgba(18,52,92,.25), inset 0 1px 0 rgba(255,255,255,.15);
+  }
+  .toolbtn.primary:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 10px 22px rgba(18,52,92,.32), inset 0 1px 0 rgba(255,255,255,.15)}
+  .toolbtn:disabled{opacity:.55;cursor:default}
+
+  .content{padding:26px 32px 48px;flex:1;min-width:0}
+  .hero{margin-bottom:22px}
+  .hero h2{font-size:24px;margin:0 0 6px;letter-spacing:-.02em;color:var(--navy);font-weight:800}
+  .hero p{margin:0;color:var(--muted);font-size:13.5px;max-width:720px;line-height:1.55}
+
+  /* ---------- workspace grid (fills width) ---------- */
+  .workspace{
+    display:grid;
+    grid-template-columns:minmax(0,1.4fr) minmax(320px, .9fr);
+    gap:22px;
+    align-items:start;
+  }
+  .col{display:flex;flex-direction:column;gap:22px;min-width:0}
+  .col.right{position:sticky;top:88px}
+
+  @media (max-width:1280px){
+    :root{--sidebar-w:220px}
+    .content{padding:22px 22px 40px}
+  }
+  @media (max-width:1080px){
+    .workspace{grid-template-columns:1fr}
+    .col.right{position:static}
+  }
+  @media (max-width:820px){
+    .app{grid-template-columns:1fr}
+    .sidebar{position:relative;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center;padding:14px 18px}
+    .side-section, .side-card{display:none}
+  }
+
+  /* ---------- cards ---------- */
+  .card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:22px 22px 20px;
+    box-shadow:var(--shadow-sm);
+  }
+  .card-head{display:flex;align-items:center;gap:11px;margin-bottom:16px}
+  .card-head .icon{
+    width:34px;height:34px;border-radius:10px;
+    background:linear-gradient(135deg,#eef3fb,#dbe6f5);
+    color:var(--navy-2);
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:inset 0 0 0 1px rgba(28,77,127,.12);
+  }
+  .card-head .icon svg{width:16px;height:16px}
+  .card-head h3{
+    font-size:13px;color:var(--navy);margin:0;font-weight:700;
+    letter-spacing:.05em;text-transform:uppercase;
+  }
+  .card-head .aside{margin-left:auto;font-size:12px;color:var(--sub);font-weight:500}
+  .card-head .aside b{color:var(--navy-2);font-weight:700}
+
+  /* ---------- fields ---------- */
+  label{display:block;font-size:11px;font-weight:700;color:var(--muted);margin:14px 0 6px;text-transform:uppercase;letter-spacing:.06em}
+  label:first-of-type{margin-top:0}
+  input,textarea,select{
+    width:100%;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:11px 13px;
+    font-size:14px;
+    font-family:inherit;
+    color:var(--ink);
+    background:#fff;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  input:hover,textarea:hover,select:hover{border-color:#cfd5de}
+  input:focus,textarea:focus,select:focus{
+    outline:none;border-color:var(--navy-3);
+    box-shadow:0 0 0 4px rgba(28,77,127,.12);
+  }
+  textarea{resize:vertical;line-height:1.55}
+  .mono,textarea.mono{font-family:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;font-size:13px;letter-spacing:.01em}
+  select{appearance:none;background-image:url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236b7280' d='M6 8L0 0h12z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:34px}
+
+  /* ---------- level segmented ---------- */
+  .seg{display:flex;border:1px solid var(--line);border-radius:12px;padding:4px;background:var(--tint);gap:4px;position:relative}
+  .seg button{
+    flex:1;border:none;padding:10px 12px;
+    background:transparent;color:var(--muted);
+    font:600 13px inherit;cursor:pointer;border-radius:9px;
+    transition:color .2s;position:relative;z-index:1;
+  }
+  .seg button.on{color:#fff}
+  .seg .indicator{
+    position:absolute;top:4px;bottom:4px;
+    background:linear-gradient(135deg, var(--navy-2), var(--navy-3));
+    border-radius:9px;
+    box-shadow:0 4px 12px rgba(18,52,92,.28);
+    z-index:0;
+  }
+
+  .row{display:flex;gap:12px}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+  /* ---------- year blocks ---------- */
+  .years-wrap{margin-top:4px}
+  .yearblock{
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:16px 16px 14px;
+    margin-bottom:12px;
+    background:linear-gradient(180deg,#fafbfd 0%,#f5f7fb 100%);
+    position:relative;overflow:hidden;
+    transition:border-color .2s, box-shadow .2s;
+  }
+  .yearblock:hover{border-color:#cbd3de;box-shadow:0 6px 20px rgba(15,32,58,.05)}
+  .yearblock::before{
+    content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+    background:linear-gradient(180deg, var(--navy-2), var(--navy-3));
+    border-radius:14px 0 0 14px;opacity:.9;
+  }
+  .yb-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .yb-title{display:inline-flex;align-items:center;gap:9px;font-weight:700;font-size:12px;color:var(--navy);text-transform:uppercase;letter-spacing:.06em}
+  .yb-title .badge{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:24px;height:24px;border-radius:7px;
+    background:linear-gradient(135deg,#eef3fb,#d8e5f4);
+    color:var(--navy-2);font-size:11px;font-weight:800;
+    box-shadow:inset 0 0 0 1px rgba(28,77,127,.15);
+  }
+  .yb-remove{
+    border:none;background:transparent;color:var(--danger);
+    font:600 12px inherit;cursor:pointer;
+    padding:6px 10px;border-radius:8px;
+    display:inline-flex;align-items:center;gap:5px;
+    transition:background .15s;
+  }
+  .yb-remove:hover:not(:disabled){background:var(--danger-bg)}
+  .yb-remove:disabled{color:#c4c9cf;cursor:default}
+  .yb-row{display:grid;grid-template-columns:200px 1fr;gap:14px;align-items:start}
+  .yb-row > div > label:first-child{margin-top:0}
+  .yearblock label{margin-top:10px}
+
+  #addYearBtn{
+    margin-top:6px;background:#fff;
+    border:1.5px dashed #b8c2cf;color:var(--navy-2);
+    border-radius:12px;padding:12px 14px;
+    font:600 13px inherit;cursor:pointer;width:100%;
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    transition:background .2s, border-color .2s, color .2s;
+  }
+  #addYearBtn:hover{background:linear-gradient(180deg,#f5f8fd,#eef3fb);border-color:var(--navy-3);color:var(--navy)}
+  #addYearBtn .plus{
+    width:20px;height:20px;border-radius:50%;
+    display:inline-flex;align-items:center;justify-content:center;
+    background:linear-gradient(135deg,var(--navy-2),var(--navy-3));color:#fff;
+    font-size:14px;font-weight:800;line-height:1;
+  }
+
+  /* ---------- results ---------- */
+  #results{margin-top:22px}
+  .crow{
+    display:flex;align-items:center;gap:12px;
+    padding:13px 16px;border:1px solid var(--line-2);
+    border-radius:12px;margin-bottom:8px;background:#fff;
+    font-size:14px;box-shadow:var(--shadow-xs);
+  }
+  .dot{width:26px;height:26px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff}
+  .dot.done{background:linear-gradient(135deg,#22a06b,#1f7a52)}
+  .dot.error{background:linear-gradient(135deg,#e07a63,#cf5642)}
+  .dot.fetching{background:linear-gradient(135deg,#e8a94e,#c98a2b)}
+  .crow code{font-family:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;font-weight:600;color:var(--navy-2);background:#eef3fb;padding:2px 7px;border-radius:6px;font-size:12.5px}
   .crow .grow{flex:1;min-width:0}
   .crow .err{color:#b23a2a;font-size:12.5px}
-  .manual{margin-top:8px}
-  .manual input{font-size:12px}
-  .note{font-size:12px;color:#8a929b;margin-top:6px}
-  .spinner{width:16px;height:16px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;display:inline-block}
+  .manual{margin-top:10px}
+  .manual input{font-size:12.5px}
+  .note{font-size:12.5px;color:var(--sub);margin-top:8px;line-height:1.5}
+
+  .spinner{width:14px;height:14px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite;display:inline-block;opacity:.8}
   @keyframes spin{to{transform:rotate(360deg)}}
+
+  .anim-in{opacity:0}
+
+  /* mini metric cards inside "at a glance" strip */
+  .strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:22px}
+  .metric{
+    background:var(--surface);border:1px solid var(--line);
+    border-radius:14px;padding:14px 16px;box-shadow:var(--shadow-xs);
+    display:flex;flex-direction:column;gap:4px;position:relative;overflow:hidden;
+  }
+  .metric .k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--sub);font-weight:700}
+  .metric .v{font-size:22px;font-weight:800;color:var(--navy);letter-spacing:-.01em;line-height:1.2}
+  .metric .sub{font-size:12px;color:var(--muted)}
+  .metric .accent{
+    position:absolute;right:-30px;top:-30px;width:100px;height:100px;border-radius:50%;
+    background:radial-gradient(circle,#dbe6f5 0%,transparent 70%);opacity:.7;
+  }
+  @media (max-width:1080px){.strip{grid-template-columns:repeat(2,1fr)}}
+  @media (max-width:520px){.strip{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
-<header>
-  <div class="logo">A</div>
-  <div><h1>Course Descriptor Builder</h1><div class="sub">University of Aberdeen · runs on your machine</div></div>
-</header>
+<div class="app">
 
-<main>
-  <form id="form">
-    <div class="grid">
-      <div class="card">
-        <h2>Courses &amp; catalogue</h2>
-        <label>Level</label>
-        <div class="seg" id="seg">
-          <button type="button" data-v="undergraduate">Undergraduate</button>
-          <button type="button" data-v="postgraduate">Postgraduate</button>
-        </div>
-        <input type="hidden" name="level" id="level" value="{{ cfg.level }}">
-        <label>Academic year</label>
-        <select name="year">
-          {% for y in ["2021-2022","2022-2023","2023-2024","2024-2025","2025-2026"] %}
-            <option {% if y==cfg.year %}selected{% endif %}>{{ y }}</option>
-          {% endfor %}
-        </select>
-        <label>Course IDs <span style="font-weight:400;color:#8a929b">— one per line or comma-separated</span></label>
-        <textarea name="courses" rows="6" class="mono">{{ courses_text }}</textarea>
-        <div class="note">Codes keep the case you type (e.g. <b>An3009</b>); the catalogue is case-sensitive.</div>
-      </div>
-
-      <div class="card">
-        <h2>Document cover page</h2>
-        <label>Student name</label>
-        <input name="student" value="{{ cfg.cover.student }}">
-        <label>Degree title</label>
-        <input name="degree" value="{{ cfg.cover.degree }}">
-        <div class="row">
-          <div style="flex:1"><label>Compiled by</label><input name="compiled_by" value="{{ cfg.cover.compiled_by }}"></div>
-          <div style="width:140px"><label>Date</label><input name="date" value="{{ cfg.cover.date }}"></div>
-        </div>
-        <label>Position</label>
-        <input name="position" value="{{ cfg.cover.position }}">
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="mark">A</div>
+      <div>
+        <h1>Course Descriptor</h1>
+        <div class="sub">University of Aberdeen</div>
       </div>
     </div>
 
-    <div class="card">
-      <h2>Prefix → subject mapping</h2>
-      <label>One rule per line — <span style="font-weight:400;color:#8a929b">PREFIX = subject_path</span></label>
-      <textarea name="prefix_map" rows="5" class="mono">{{ prefix_text }}</textarea>
-      <div class="note">Subjects use the exact text written here (e.g. <b>Anatomy</b>, <b>computing_science</b>).</div>
+    <div class="side-section">
+      <div class="side-label">Build steps</div>
+      <div class="steps">
+        <a href="#step-catalogue" class="step active" data-step="catalogue"><span class="num">1</span> Courses &amp; years</a>
+        <a href="#step-mapping" class="step" data-step="mapping"><span class="num">2</span> Prefix mapping</a>
+        <a href="#step-cover" class="step" data-step="cover"><span class="num">3</span> Cover page</a>
+        <a href="#step-generate" class="step" data-step="generate"><span class="num">4</span> Generate</a>
+      </div>
     </div>
 
-    <div class="btnbar">
-      <button type="button" class="btn ghost" id="checkBtn">Check URLs &amp; fetch</button>
-      <button type="button" class="btn primary" id="genBtn">Generate &amp; download .docx</button>
+    <div class="side-section">
+      <div class="side-label">Reference</div>
+      <div class="steps">
+        <a href="https://www.abdn.ac.uk/registry/courses/" target="_blank" rel="noreferrer" class="step"><span class="num">↗</span> Catalogue archive</a>
+      </div>
     </div>
-  </form>
 
-  <div id="results"></div>
-</main>
+    <div class="side-card">
+      <span class="pill"><span class="dot"></span> Local session</span>
+      <div>Everything runs on your machine — <b>no data leaves</b> your computer. Course pages are fetched live from Aberdeen's public catalogue.</div>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <div class="main">
+
+    <div class="topbar">
+      <div class="crumbs">
+        <b>Descriptor Builder</b> <span class="sep">/</span> <span>New document</span>
+      </div>
+      <div class="spacer"></div>
+      <button type="button" class="toolbtn" id="checkBtn">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        Check URLs
+      </button>
+      <button type="button" class="toolbtn primary" id="genBtn">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M6 9l6 6 6-6"/><path d="M4 21h16"/></svg>
+        Generate .docx
+      </button>
+    </div>
+
+    <div class="content">
+      <div class="hero anim-in">
+        <h2>Build a Module Descriptors document</h2>
+        <p>Enter the student's courses for each year of study — the tool fetches every module page from the Aberdeen catalogue and compiles a signed .docx.</p>
+      </div>
+
+      <!-- at-a-glance strip -->
+      <div class="strip">
+        <div class="metric anim-in"><div class="accent"></div><div class="k">Years of study</div><div class="v" id="mYears">1</div><div class="sub" id="mYearsSub">2024-2025</div></div>
+        <div class="metric anim-in"><div class="accent"></div><div class="k">Courses total</div><div class="v" id="mCourses">0</div><div class="sub">Across all years</div></div>
+        <div class="metric anim-in"><div class="accent"></div><div class="k">Level</div><div class="v" id="mLevel">UG</div><div class="sub" id="mLevelSub">Undergraduate</div></div>
+        <div class="metric anim-in"><div class="accent"></div><div class="k">Student</div><div class="v" id="mStudent" style="font-size:16px;line-height:1.4">—</div><div class="sub" id="mDegree">No degree set</div></div>
+      </div>
+
+      <form id="form">
+        <div class="workspace">
+
+          <!-- LEFT column -->
+          <div class="col">
+            <div class="card anim-in" id="step-catalogue">
+              <div class="card-head">
+                <div class="icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6a2 2 0 0 1 2 2v14"/><path d="M20 4h-6a2 2 0 0 0-2 2v14"/><path d="M4 4v16h16V4"/></svg>
+                </div>
+                <h3>Courses &amp; catalogue</h3>
+                <span class="aside"><b id="yearsCount">1 year</b> · <span id="totalCourses">0 courses</span></span>
+              </div>
+
+              <label>Level</label>
+              <div class="seg" id="seg">
+                <div class="indicator" aria-hidden="true"></div>
+                <button type="button" data-v="undergraduate">Undergraduate</button>
+                <button type="button" data-v="postgraduate">Postgraduate</button>
+              </div>
+              <input type="hidden" name="level" id="level" value="{{ cfg.level }}">
+
+              <label>Years of study <span style="font-weight:500;color:var(--sub);text-transform:none;letter-spacing:0">— add one block per academic year</span></label>
+              <div id="years" class="years-wrap">
+                {% for g in year_groups %}
+                <div class="yearblock" data-idx="{{ loop.index0 }}">
+                  <div class="yb-head">
+                    <div class="yb-title"><span class="badge">{{ loop.index }}</span> <span class="yb-title-text">Year {{ loop.index }}</span></div>
+                    <button type="button" class="yb-remove">&times; Remove</button>
+                  </div>
+                  <div class="yb-row">
+                    <div>
+                      <label>Academic year</label>
+                      <select name="years[]">
+                        {% for y in year_options %}
+                          <option {% if y==g.year %}selected{% endif %}>{{ y }}</option>
+                        {% endfor %}
+                      </select>
+                    </div>
+                    <div>
+                      <label>Course IDs <span style="font-weight:500;color:var(--sub);text-transform:none;letter-spacing:0">— one per line or comma-separated</span></label>
+                      <textarea name="courses[]" rows="4" class="mono">{{ g.courses | join('\n') }}</textarea>
+                    </div>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+              <button type="button" id="addYearBtn"><span class="plus">+</span> Add another year</button>
+              <div class="note">Codes keep the case you type (e.g. <b>An3009</b>); the catalogue is case-sensitive.</div>
+            </div>
+
+            <template id="yearTpl">
+              <div class="yearblock">
+                <div class="yb-head">
+                  <div class="yb-title"><span class="badge">?</span> <span class="yb-title-text">Year</span></div>
+                  <button type="button" class="yb-remove">&times; Remove</button>
+                </div>
+                <div class="yb-row">
+                  <div>
+                    <label>Academic year</label>
+                    <select name="years[]">
+                      {% for y in year_options %}
+                        <option>{{ y }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <div>
+                    <label>Course IDs <span style="font-weight:500;color:var(--sub);text-transform:none;letter-spacing:0">— one per line or comma-separated</span></label>
+                    <textarea name="courses[]" rows="4" class="mono"></textarea>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <div class="card anim-in" id="step-mapping">
+              <div class="card-head">
+                <div class="icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h6"/><path d="M14 6h6"/><path d="M4 12h6"/><path d="M14 12h6"/><path d="M4 18h6"/><path d="M14 18h6"/><path d="M10 6l4 6-4 6"/></svg>
+                </div>
+                <h3>Prefix → subject mapping</h3>
+              </div>
+              <label>One rule per line — <span style="font-weight:500;color:var(--sub);text-transform:none;letter-spacing:0">PREFIX = subject_path</span></label>
+              <textarea name="prefix_map" rows="7" class="mono">{{ prefix_text }}</textarea>
+              <div class="note">Subjects use the exact text written here (e.g. <b>Anatomy</b>, <b>computing_science</b>).</div>
+            </div>
+          </div>
+
+          <!-- RIGHT column (sticky) -->
+          <div class="col right">
+            <div class="card anim-in" id="step-cover">
+              <div class="card-head">
+                <div class="icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg>
+                </div>
+                <h3>Document cover page</h3>
+              </div>
+              <label>Student name</label>
+              <input name="student" value="{{ cfg.cover.student }}">
+              <label>Degree title</label>
+              <input name="degree" value="{{ cfg.cover.degree }}">
+              <div class="grid-2">
+                <div><label>Compiled by</label><input name="compiled_by" value="{{ cfg.cover.compiled_by }}"></div>
+                <div><label>Date</label><input name="date" value="{{ cfg.cover.date }}"></div>
+              </div>
+              <label>Position</label>
+              <input name="position" value="{{ cfg.cover.position }}">
+            </div>
+
+            <div class="card anim-in" id="step-generate">
+              <div class="card-head">
+                <div class="icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M6 9l6 6 6-6"/><path d="M4 21h16"/></svg>
+                </div>
+                <h3>Actions</h3>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <button type="button" class="toolbtn" id="checkBtn2" style="justify-content:center;padding:12px 14px">Check URLs &amp; fetch</button>
+                <button type="button" class="toolbtn primary" id="genBtn2" style="justify-content:center;padding:12px 14px">Generate .docx</button>
+              </div>
+              <div class="note" style="text-align:center;margin-top:10px">Check first to preview which pages will resolve, then generate to build and download.</div>
+            </div>
+          </div>
+        </div>
+      </form>
+
+      <div id="results"></div>
+    </div>
+  </div>
+</div>
 
 <script>
 const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
 const form = $('#form');
 
-// level segmented control
-const seg = $('#seg'), levelInput = $('#level');
-function paintSeg(){ [...seg.children].forEach(b=>b.classList.toggle('on', b.dataset.v===levelInput.value)); }
-seg.addEventListener('click', e=>{ if(e.target.dataset.v){ levelInput.value=e.target.dataset.v; paintSeg(); }});
-paintSeg();
+// ---------- level segmented ----------
+const seg = $('#seg'), levelInput = $('#level'), segIndicator = seg.querySelector('.indicator');
+function paintSeg(animate=true){
+  seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === levelInput.value));
+  const active = seg.querySelector('button.on'); if(!active) return;
+  const sr = seg.getBoundingClientRect(), br = active.getBoundingClientRect();
+  const left = br.left - sr.left;
+  if(animate) gsap.to(segIndicator, {left, width: br.width, duration:.35, ease:'power2.out'});
+  else gsap.set(segIndicator, {left, width: br.width});
+  const lv = levelInput.value;
+  $('#mLevel').textContent = lv === 'postgraduate' ? 'PG' : 'UG';
+  $('#mLevelSub').textContent = lv === 'postgraduate' ? 'Postgraduate' : 'Undergraduate';
+}
+seg.addEventListener('click', e=>{
+  const b = e.target.closest('button[data-v]');
+  if(b){ levelInput.value = b.dataset.v; paintSeg(); }
+});
+window.addEventListener('resize', ()=>paintSeg(false));
+requestAnimationFrame(()=>paintSeg(false));
 
+// ---------- year blocks ----------
+const yearsBox = $('#years');
+const yearTpl = $('#yearTpl');
+const yearsCount = $('#yearsCount');
+const totalCourses = $('#totalCourses');
+
+function countCourses(txt){ return (txt||'').split(/[\n,]/).map(s=>s.trim()).filter(Boolean).length; }
+function refreshMetrics(){
+  const blocks = yearsBox.querySelectorAll('.yearblock');
+  let total = 0;
+  const years = [];
+  blocks.forEach(b => {
+    total += countCourses(b.querySelector('textarea').value);
+    years.push(b.querySelector('select').value);
+  });
+  yearsCount.textContent = blocks.length + (blocks.length===1?' year':' years');
+  totalCourses.textContent = total + (total===1?' course':' courses');
+  $('#mYears').textContent = blocks.length;
+  $('#mYearsSub').textContent = years.filter(Boolean).join(', ') || '—';
+  $('#mCourses').textContent = total;
+}
+function relabelYears(){
+  const blocks = yearsBox.querySelectorAll('.yearblock');
+  blocks.forEach((b, i) => {
+    b.querySelector('.yb-title-text').textContent = 'Year ' + (i + 1);
+    b.querySelector('.badge').textContent = (i + 1);
+    b.querySelector('.yb-remove').disabled = blocks.length === 1;
+  });
+  refreshMetrics();
+}
+function animateInBlock(el){
+  gsap.fromTo(el,
+    {opacity:0, y:-12, scale:.98, height:0, marginBottom:0, paddingTop:0, paddingBottom:0},
+    {opacity:1, y:0, scale:1, height:'auto', marginBottom:12, paddingTop:16, paddingBottom:14, duration:.5, ease:'power3.out',
+     clearProps:'height,marginBottom,paddingTop,paddingBottom,transform'});
+}
+function animateOutBlock(el, done){
+  gsap.to(el, {opacity:0, y:-8, scale:.98, height:0, marginBottom:0, paddingTop:0, paddingBottom:0,
+    duration:.35, ease:'power2.in',
+    onComplete:()=>{ el.remove(); done && done(); }});
+}
+yearsBox.addEventListener('click', e => {
+  const rm = e.target.closest('.yb-remove'); if(!rm) return;
+  const block = rm.closest('.yearblock');
+  if(yearsBox.querySelectorAll('.yearblock').length <= 1) return;
+  animateOutBlock(block, relabelYears);
+});
+yearsBox.addEventListener('input', refreshMetrics);
+yearsBox.addEventListener('change', refreshMetrics);
+
+$('#addYearBtn').addEventListener('click', () => {
+  const clone = yearTpl.content.firstElementChild.cloneNode(true);
+  const prev = yearsBox.querySelector('.yearblock:last-child select[name="years[]"]');
+  yearsBox.appendChild(clone);
+  if(prev){
+    const opts = [...prev.options].map(o=>o.value);
+    const cur = opts.indexOf(prev.value);
+    if(cur>=0 && cur<opts.length-1) clone.querySelector('select[name="years[]"]').value = opts[cur+1];
+  }
+  relabelYears();
+  animateInBlock(clone);
+  setTimeout(()=>clone.scrollIntoView({behavior:'smooth', block:'nearest'}), 60);
+  gsap.fromTo('#addYearBtn', {scale:.97}, {scale:1, duration:.25, ease:'back.out(2)'});
+});
+relabelYears();
+
+// ---------- student/degree live metric ----------
+function refreshCover(){
+  const s = form.student.value.trim(); const d = form.degree.value.trim();
+  $('#mStudent').textContent = s || '—';
+  $('#mDegree').textContent = d || 'No degree set';
+}
+form.addEventListener('input', e => {
+  if(e.target.name==='student' || e.target.name==='degree') refreshCover();
+});
+refreshCover();
+
+// ---------- sidebar step highlighting via ScrollTrigger ----------
+gsap.registerPlugin(ScrollTrigger);
+const stepMap = {catalogue:'#step-catalogue', mapping:'#step-mapping', cover:'#step-cover', generate:'#step-generate'};
+function setActive(key){
+  $$('.step').forEach(s => s.classList.toggle('active', s.dataset.step === key));
+}
+Object.entries(stepMap).forEach(([key, sel])=>{
+  const el = document.querySelector(sel); if(!el) return;
+  ScrollTrigger.create({trigger:el, start:'top 30%', end:'bottom 30%', onToggle:st=>{ if(st.isActive) setActive(key); }});
+});
+$$('.step[data-step]').forEach(s => s.addEventListener('click', e=>{
+  const t = document.querySelector(stepMap[s.dataset.step]);
+  if(t){ e.preventDefault(); t.scrollIntoView({behavior:'smooth', block:'start'}); }
+}));
+
+// ---------- entrance ----------
+gsap.set('.anim-in', {opacity:0, y:16});
+gsap.to('.anim-in', {opacity:1, y:0, duration:.55, ease:'power3.out', stagger:.06, delay:.05});
+
+// ---------- fetch actions ----------
 function fd(){ return new FormData(form); }
 
 function renderResults(data, {downloaded}={}){
   const box = $('#results');
-  let html = '<div class="card"><h2>Results</h2>';
+  let html = '<div class="card anim-in"><div class="card-head"><div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div><h3>Results</h3></div>';
   if(downloaded) html += '<div class="crow"><div class="dot done">&#10003;</div><div class="grow"><b>Document downloaded.</b> Check your browser downloads.</div></div>';
   (data.courses||[]).forEach(c=>{
-    html += `<div class="crow"><div class="dot done">&#10003;</div><div class="grow"><code>${c.id}</code> &nbsp; ${c.title} <span style="color:#8a929b">· ${c.cp} cp</span></div></div>`;
+    const yr = c.year ? ` <span style="color:var(--sub)">· ${c.year}</span>` : '';
+    html += `<div class="crow"><div class="dot done">&#10003;</div><div class="grow"><code>${c.id}</code> &nbsp; ${c.title} <span style="color:var(--sub)">· ${c.cp} cp</span>${yr}</div></div>`;
   });
   (data.errors||[]).forEach(e=>{
-    html += `<div class="crow" style="border-color:#f0c4bc;background:#fdf3f1;flex-wrap:wrap">
+    const yr = e.year ? ` <span style="color:var(--sub)">(${e.year})</span>` : '';
+    html += `<div class="crow" style="border-color:var(--danger-line);background:var(--danger-bg);flex-wrap:wrap">
       <div class="dot error">!</div>
-      <div class="grow"><code>${e.code}</code> <span class="err">Not fetched</span><div class="err">${e.message}</div></div>
+      <div class="grow"><code>${e.code}</code>${yr} <span class="err">Not fetched</span><div class="err">${e.message}</div></div>
       <div class="manual" style="flex-basis:100%">
         <input class="mono" placeholder="Paste the correct catalogue URL for ${e.code} and re-run"
                data-code="${e.code}" value="${(currentManual[e.code]||'')}">
@@ -135,31 +683,35 @@ function renderResults(data, {downloaded}={}){
   box.querySelectorAll('input[data-code]').forEach(inp=>{
     inp.addEventListener('change', ()=>{ currentManual[inp.dataset.code]=inp.value.trim(); });
   });
+  gsap.fromTo(box.querySelector('.card'), {opacity:0, y:14}, {opacity:1, y:0, duration:.45, ease:'power3.out'});
+  gsap.fromTo(box.querySelectorAll('.crow'), {opacity:0, y:10}, {opacity:1, y:0, duration:.4, ease:'power3.out', stagger:.04, delay:.1});
 }
 
 let currentManual = {};
 function withManual(){ const f=fd(); for(const [k,v] of Object.entries(currentManual)){ if(v) f.append('manual_'+k, v); } return f; }
 
-function busy(btn, on, label){ btn.disabled=on; btn.innerHTML = on ? '<span class="spinner"></span> '+label : btn.dataset.label; }
+function busy(btn, on, txt){
+  btn.disabled = on;
+  btn.innerHTML = on ? '<span class="spinner"></span> '+txt : btn.dataset.label;
+}
 
-$('#checkBtn').dataset.label = $('#checkBtn').innerHTML;
-$('#genBtn').dataset.label = $('#genBtn').innerHTML;
+['#checkBtn','#checkBtn2','#genBtn','#genBtn2'].forEach(id => { const b = $(id); if(b) b.dataset.label = b.innerHTML; });
 
-$('#checkBtn').addEventListener('click', async ()=>{
-  busy($('#checkBtn'), true, 'Fetching…');
+async function doCheck(){
+  const btns = [$('#checkBtn'), $('#checkBtn2')].filter(Boolean);
+  btns.forEach(b=>busy(b, true, 'Fetching…'));
   try{
     const r = await fetch('/preview', {method:'POST', body:withManual()});
-    const data = await r.json();
-    renderResults(data);
+    renderResults(await r.json());
   }catch(err){ alert('Error: '+err); }
-  busy($('#checkBtn'), false);
-});
-
-$('#genBtn').addEventListener('click', async ()=>{
-  busy($('#genBtn'), true, 'Building…');
+  btns.forEach(b=>busy(b, false));
+}
+async function doGenerate(){
+  const btns = [$('#genBtn'), $('#genBtn2')].filter(Boolean);
+  btns.forEach(b=>busy(b, true, 'Building…'));
   try{
     const r = await fetch('/generate', {method:'POST', body:withManual()});
-    if(r.ok && r.headers.get('content-type').includes('word')){
+    if(r.ok && (r.headers.get('content-type')||'').includes('word')){
       const blob = await r.blob();
       const cd = r.headers.get('content-disposition')||'';
       const m = cd.match(/filename="?([^"]+)"?/);
@@ -167,7 +719,6 @@ $('#genBtn').addEventListener('click', async ()=>{
       a.href = URL.createObjectURL(blob);
       a.download = m ? m[1] : 'Module_Descriptors.docx';
       document.body.appendChild(a); a.click(); a.remove();
-      // also show which courses made it / failed
       const chk = await fetch('/preview', {method:'POST', body:withManual()});
       renderResults(await chk.json(), {downloaded:true});
     } else {
@@ -176,8 +727,12 @@ $('#genBtn').addEventListener('click', async ()=>{
       alert(data.message || 'Some courses could not be fetched — see results.');
     }
   }catch(err){ alert('Error: '+err); }
-  busy($('#genBtn'), false);
-});
+  btns.forEach(b=>busy(b, false));
+}
+$('#checkBtn').addEventListener('click', doCheck);
+$('#checkBtn2').addEventListener('click', doCheck);
+$('#genBtn').addEventListener('click', doGenerate);
+$('#genBtn2').addEventListener('click', doGenerate);
 </script>
 </body>
 </html>
