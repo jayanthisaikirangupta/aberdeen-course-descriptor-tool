@@ -488,8 +488,14 @@
                 <h3>Prefix → subject mapping</h3>
               </div>
               <label>One rule per line — <span style="font-weight:500;color:var(--sub);text-transform:none;letter-spacing:0">PREFIX = subject_path</span></label>
-              <textarea name="prefix_map" rows="7" class="mono">{{ prefix_text }}</textarea>
-              <div class="note">Subjects use the exact text written here (e.g. <b>Anatomy</b>, <b>computing_science</b>).</div>
+              <textarea name="prefix_map" id="prefixMap" rows="7" class="mono" readonly>{{ prefix_text }}</textarea>
+              <div class="pm-actions" style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap">
+                <button type="button" class="toolbtn" id="pmEditBtn">Edit</button>
+                <button type="button" class="toolbtn" id="pmCancelBtn" style="display:none">Cancel</button>
+                <button type="button" class="toolbtn primary" id="pmSaveBtn" style="display:none">Save</button>
+                <span id="pmStatus" style="display:none;font-size:12px;font-weight:600"></span>
+              </div>
+              <div class="note">Subjects use the exact text written here (e.g. <b>Anatomy</b>, <b>computing_science</b>). Click <b>Save</b> to persist changes to <code>config.json</code>.</div>
             </div>
           </div>
 
@@ -733,6 +739,59 @@ $('#checkBtn').addEventListener('click', doCheck);
 $('#checkBtn2').addEventListener('click', doCheck);
 $('#genBtn').addEventListener('click', doGenerate);
 $('#genBtn2').addEventListener('click', doGenerate);
+
+// ---------- prefix map: edit / cancel / save ----------
+(function(){
+  const ta = $('#prefixMap');
+  const editBtn = $('#pmEditBtn');
+  const cancelBtn = $('#pmCancelBtn');
+  const saveBtn = $('#pmSaveBtn');
+  const status = $('#pmStatus');
+  if(!ta || !editBtn || !cancelBtn || !saveBtn) return;
+  let original = ta.value;
+  function setEditing(on){
+    ta.readOnly = !on;
+    editBtn.style.display = on ? 'none' : '';
+    cancelBtn.style.display = on ? '' : 'none';
+    saveBtn.style.display = on ? '' : 'none';
+    if(on){ ta.focus(); }
+  }
+  function flash(msg, kind){
+    status.textContent = msg;
+    status.style.color = kind === 'error' ? 'var(--danger)' : 'var(--success)';
+    status.style.display = '';
+    clearTimeout(flash._t);
+    flash._t = setTimeout(()=>{ status.style.display = 'none'; }, 2400);
+  }
+  editBtn.addEventListener('click', ()=> setEditing(true));
+  cancelBtn.addEventListener('click', ()=>{
+    ta.value = original;
+    setEditing(false);
+  });
+  saveBtn.addEventListener('click', async ()=>{
+    const oldLabel = saveBtn.textContent;
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving…';
+    try{
+      const body = new FormData();
+      body.append('prefix_map', ta.value);
+      const r = await fetch('/save_prefix_map', {method:'POST', body});
+      const data = await r.json().catch(()=>({}));
+      if(r.ok && data.ok){
+        original = ta.value;
+        setEditing(false);
+        flash('Saved · ' + data.count + ' rule' + (data.count === 1 ? '' : 's'), 'ok');
+      } else {
+        flash(data.error || 'Save failed', 'error');
+      }
+    } catch(err){
+      flash('Error: ' + err, 'error');
+    } finally{
+      saveBtn.disabled = false;
+      saveBtn.textContent = oldLabel;
+    }
+  });
+})();
 </script>
 </body>
 </html>

@@ -13,7 +13,8 @@
     "PU": "applied_health",
     "MA": "mathematics",
     "PX": "physics",
-    "BU": "business"
+    "BU": "business",
+    "PS": "psychology"
   },
   "manual_urls": {},
   "cover": {

@@ -100,6 +100,31 @@ def _parse_form(form):
     return config
 
 
+@app.route("/save_prefix_map", methods=["POST"])
+def save_prefix_map():
+    """Persist the Prefix → subject mapping to config.json."""
+    text = request.form.get("prefix_map", "")
+    prefix_map = {}
+    for line in text.splitlines():
+        if "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        if k.strip() and v.strip():
+            prefix_map[k.strip().upper()] = v.strip()
+
+    path = os.path.join(HERE, "config.json")
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        cfg = {}
+    cfg["prefix_map"] = prefix_map
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    return jsonify({"ok": True, "prefix_map": prefix_map, "count": len(prefix_map)})
+
+
 @app.route("/preview", methods=["POST"])
 def preview():
     """Fetch + parse only; return per-course status as JSON (no document)."""

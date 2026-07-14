@@ -231,16 +231,25 @@ _SKIP_ASSESSMENT_SUBHEADINGS = {
 
 
 def _assessment_items(content, keywords):
-    """Return list of (assessment_name, weighting) under a section heading.
+    """Return (items, free_text) under a section heading.
 
-    Only h4 headings are treated as assessment names — h5s on the live site are
-    'Learning Outcomes' / 'Feedback' style subheadings that clutter the output.
-    Filler paragraphs like 'Look up Week Numbers' are dropped.
+    ``items`` is a list of (h4-assessment-name, weighting) tuples parsed from the
+    newer structured layout. ``free_text`` is any paragraph or bullet text under
+    the same heading — used as a fallback for older catalogue years where the
+    assessments are described in prose rather than h4 sub-headings.
+
+    h5s on the live site are 'Learning Outcomes' / 'Feedback' subheadings that
+    clutter the output, so they're skipped. Filler paragraphs like 'Look up
+    Week Numbers' are dropped.
     """
     head = _find_heading(content, keywords)
     if not head:
         return [], ""
-    items, texts = [], []
+    items, texts, seen = [], [], set()
+
+    def _norm(s):
+        return re.sub(r"\s+", " ", s).strip().lower().rstrip(":.")
+
     for el in head.find_all_next():
         if el.name in ("h2", "h3"):
             break
@@ -256,17 +265,46 @@ def _assessment_items(content, keywords):
                     weight = m.group(1)
             if name:
                 items.append((name, weight))
-        elif el.name == "p":
+        elif el.name in ("p", "li"):
             t = el.get_text(" ", strip=True)
             if not t:
                 continue
             low = t.lower()
             if "subject to change" in low:
                 continue
-            if low in _SKIP_ASSESSMENT_SUBHEADINGS:
+            n = _norm(t)
+            if n in _SKIP_ASSESSMENT_SUBHEADINGS or n in seen:
                 continue
-            texts.append(t)
-    return items, " ".join(texts)
+            seen.add(n)
+            texts.append(("• " + t) if el.name == "li" else t)
+    return items, "\n".join(texts)
+
+
+_ALT_RESIT_RE = re.compile(r"alternative\s+resit\s+arrangements?\s*[:\-]?\s*", re.I)
+
+
+def _find_alt_resit(content):
+    """Older catalogue years don't have a Resit Assessments heading — the resit
+    info is a bold 'Alternative Resit Arrangements' label inside Summative
+    Assessments. Return the text after that label, or '' if not found.
+    """
+    for tag in content.find_all(["strong", "b"]):
+        label = tag.get_text(" ", strip=True)
+        if not re.match(r"alternative\s+resit\s+arrangements?", label, re.I):
+            continue
+        parent = tag.find_parent(["p", "div", "li", "td"]) or tag.parent
+        if not parent:
+            continue
+        full = parent.get_text(" ", strip=True)
+        rest = _ALT_RESIT_RE.sub("", full, count=1).strip()
+        if rest:
+            return rest
+    for el in content.find_all(["p", "div", "li", "td"]):
+        text = el.get_text(" ", strip=True)
+        m = _ALT_RESIT_RE.search(text)
+        if m and text[m.end():].strip():
+            return text[m.end():].strip()
+    return ""
 
 
 def _fmt_items(items):
@@ -287,9 +325,15 @@ def parse_course(html, code, url):
     content = _content(soup)
     details = _details_table(content)
     cp, ects = _credits(details)
-    summ_items, _ = _assessment_items(content, ["summative assessment"])
+    summ_items, summ_text = _assessment_items(content, ["summative assessment"])
     resit_items, resit_text = _assessment_items(content, ["resit"])
     _, formative_text = _assessment_items(content, ["formative assessment"])
+
+    # Older catalogue pages often lack a Resit heading — the info is inline as
+    # 'Alternative Resit Arrangements: ...' inside Summative Assessments.
+    alt_resit = ""
+    if not resit_items and not resit_text:
+        alt_resit = _find_alt_resit(content)
 
     overview = "\n".join(_section_lines(content, ["course overview"], "Course Overview"))
     desc = "\n".join(_section_lines(content, ["course description"], "Course Description"))
@@ -302,9 +346,9 @@ def parse_course(html, code, url):
         "coord": _coordinators(details) or "See course page",
         "overview": overview or "(no overview found)",
         "desc": desc or "(no description found)",
-        "summative": _fmt_items(summ_items) or "See course page",
+        "summative": _fmt_items(summ_items) or summ_text or "See course page",
         "formative": formative_text or "There are no assessments for this course.",
-        "resit": _fmt_items(resit_items) or resit_text or "See course page",
+        "resit": _fmt_items(resit_items) or resit_text or alt_resit or "See course page",
         "url": url,
     }
 
@@ -507,7 +551,8 @@ def build_document(cover, courses, years, logo_path=None):
 
     ``years`` may be either a single academic-year string (legacy) or a list of
     ``{year, courses}`` dicts. Courses are grouped by their ``year`` attribute
-    (which build_all sets); each group is preceded by a bold "Year N" heading.
+    (which build_all sets); each group starts on its own page with a bold
+    "The following descriptors are correct for the academic year YYYY-YYYY:" line.
     """
     if logo_path is None:
         logo_path = os.path.join(HERE, "assets", "aberdeen-logo.jpeg")
@@ -585,18 +630,6 @@ def build_document(cover, courses, years, logo_path=None):
     doc.add_paragraph("Signature:")
     doc.add_paragraph("Stamp:")
 
-    doc.add_page_break()
-    intro_year = doc.add_paragraph()
-    if len(year_list) == 1:
-        msg = "The following descriptions are correct for the academic year " + year_list[0] + ":"
-    elif len(year_list) > 1:
-        msg = ("The following descriptions are correct for the academic years "
-               + ", ".join(year_list[:-1]) + " and " + year_list[-1] + ":")
-    else:
-        msg = "The following descriptions are correct as of the year(s) of study below:"
-    r = intro_year.add_run(msg)
-    r.bold = True
-
     # ---- course sections, grouped by year ----
     grouped, order = {}, []
     for c in courses:
@@ -610,15 +643,18 @@ def build_document(cover, courses, years, logo_path=None):
     ordered_years = [y for y in year_list if y in grouped]
     ordered_years += [y for y in order if y not in ordered_years]
 
-    for idx, y in enumerate(ordered_years, start=1):
-        if len(ordered_years) > 1 or y:
-            heading = doc.add_paragraph()
-            label = f"Year {idx}"
-            if y:
-                label += f" ({y})"
-            hr = heading.add_run(label)
-            hr.bold = True
-            hr.font.size = Pt(13)
+    for y in ordered_years:
+        # each year's section starts on its own page
+        doc.add_page_break()
+
+        intro_year = doc.add_paragraph()
+        if y:
+            msg = "The following descriptors are correct for the academic year " + y + ":"
+        else:
+            msg = "The following descriptors are correct as of the year(s) of study below:"
+        r = intro_year.add_run(msg)
+        r.bold = True
+
         for c in grouped[y]:
             _course_table(doc, c)
 
