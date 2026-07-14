@@ -221,6 +221,31 @@
   .mono,textarea.mono{font-family:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;font-size:13px;letter-spacing:.01em}
   select{appearance:none;background-image:url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236b7280' d='M6 8L0 0h12z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:34px}
 
+  /* ---------- validation states ---------- */
+  input.invalid, textarea.invalid, select.invalid{
+    border-color:var(--danger);
+    background:var(--danger-bg);
+    box-shadow:0 0 0 3px rgba(207,86,66,.10);
+  }
+  input.invalid:focus, textarea.invalid:focus, select.invalid:focus{
+    box-shadow:0 0 0 4px rgba(207,86,66,.18);
+  }
+  .req{color:var(--danger);margin-left:3px;font-weight:700}
+  .form-banner{
+    display:none;
+    padding:12px 14px;
+    border-radius:12px;
+    background:var(--danger-bg);
+    border:1px solid var(--danger-line);
+    color:var(--danger);
+    font-size:13.5px;line-height:1.5;
+    margin-bottom:16px;
+  }
+  .form-banner.show{display:block}
+  .form-banner b{color:#8f2c1a;font-weight:700}
+  .form-banner ul{margin:6px 0 0 20px;padding:0}
+  .form-banner li{margin:2px 0}
+
   /* ---------- level segmented ---------- */
   .seg{display:flex;border:1px solid var(--line);border-radius:12px;padding:4px;background:var(--tint);gap:4px;position:relative}
   .seg button{
@@ -407,6 +432,7 @@
       </div>
 
       <form id="form">
+        <div id="formBanner" class="form-banner" role="alert" aria-live="polite"></div>
         <div class="workspace">
 
           <!-- LEFT column -->
@@ -428,7 +454,7 @@
               </div>
               <input type="hidden" name="level" id="level" value="{{ cfg.level }}">
 
-              <label>Years of study <span style="font-weight:500;color:var(--sub);text-transform:none;letter-spacing:0">— add one block per academic year</span></label>
+              <label>Years of study <span class="req">*</span> <span style="font-weight:500;color:var(--sub);text-transform:none;letter-spacing:0">— add one block per academic year</span></label>
               <div id="years" class="years-wrap">
                 {% for g in year_groups %}
                 <div class="yearblock" data-idx="{{ loop.index0 }}">
@@ -438,16 +464,16 @@
                   </div>
                   <div class="yb-row">
                     <div>
-                      <label>Academic year</label>
-                      <select name="years[]">
+                      <label>Academic year <span class="req">*</span></label>
+                      <select name="years[]" required>
                         {% for y in year_options %}
                           <option {% if y==g.year %}selected{% endif %}>{{ y }}</option>
                         {% endfor %}
                       </select>
                     </div>
                     <div>
-                      <label>Course IDs <span style="font-weight:500;color:var(--sub);text-transform:none;letter-spacing:0">— one per line or comma-separated</span></label>
-                      <textarea name="courses[]" rows="4" class="mono">{{ g.courses | join('\n') }}</textarea>
+                      <label>Course IDs <span class="req">*</span> <span style="font-weight:500;color:var(--sub);text-transform:none;letter-spacing:0">— one per line or comma-separated (e.g. PS2517)</span></label>
+                      <textarea name="courses[]" rows="4" class="mono" required placeholder="PS2517&#10;AN3009&#10;CS2001">{{ g.courses | join('\n') }}</textarea>
                     </div>
                   </div>
                 </div>
@@ -465,16 +491,16 @@
                 </div>
                 <div class="yb-row">
                   <div>
-                    <label>Academic year</label>
-                    <select name="years[]">
+                    <label>Academic year <span class="req">*</span></label>
+                    <select name="years[]" required>
                       {% for y in year_options %}
                         <option>{{ y }}</option>
                       {% endfor %}
                     </select>
                   </div>
                   <div>
-                    <label>Course IDs <span style="font-weight:500;color:var(--sub);text-transform:none;letter-spacing:0">— one per line or comma-separated</span></label>
-                    <textarea name="courses[]" rows="4" class="mono"></textarea>
+                    <label>Course IDs <span class="req">*</span> <span style="font-weight:500;color:var(--sub);text-transform:none;letter-spacing:0">— one per line or comma-separated (e.g. PS2517)</span></label>
+                    <textarea name="courses[]" rows="4" class="mono" required placeholder="PS2517&#10;AN3009&#10;CS2001"></textarea>
                   </div>
                 </div>
               </div>
@@ -508,16 +534,16 @@
                 </div>
                 <h3>Document cover page</h3>
               </div>
-              <label>Student name</label>
-              <input name="student" value="{{ cfg.cover.student }}">
-              <label>Degree title</label>
-              <input name="degree" value="{{ cfg.cover.degree }}">
+              <label>Student name <span class="req">*</span></label>
+              <input name="student" value="{{ cfg.cover.student }}" required placeholder="e.g. Jane Smith">
+              <label>Degree title <span class="req">*</span></label>
+              <input name="degree" value="{{ cfg.cover.degree }}" required placeholder="e.g. MA (Hons) Psychology">
               <div class="grid-2">
-                <div><label>Compiled by</label><input name="compiled_by" value="{{ cfg.cover.compiled_by }}"></div>
-                <div><label>Date</label><input name="date" value="{{ cfg.cover.date }}"></div>
+                <div><label>Compiled by <span class="req">*</span></label><input name="compiled_by" value="{{ cfg.cover.compiled_by }}" required placeholder="Full name"></div>
+                <div><label>Date <span class="req">*</span></label><input name="date" value="{{ cfg.cover.date }}" required placeholder="DD/MM/YYYY"></div>
               </div>
-              <label>Position</label>
-              <input name="position" value="{{ cfg.cover.position }}">
+              <label>Position <span class="req">*</span></label>
+              <input name="position" value="{{ cfg.cover.position }}" required placeholder="e.g. Registry Officer">
             </div>
 
             <div class="card anim-in" id="step-generate">
@@ -703,20 +729,160 @@ function busy(btn, on, txt){
 
 ['#checkBtn','#checkBtn2','#genBtn','#genBtn2'].forEach(id => { const b = $(id); if(b) b.dataset.label = b.innerHTML; });
 
+// ---------- form validation ----------
+const COURSE_CODE_RE = /^[A-Za-z]{1,5}\d{3,5}$/;
+const YEAR_RE = /^\d{4}-\d{4}$/;
+const PREFIX_LINE_RE = /^[A-Za-z]+\s*=\s*\S.*$/;
+
+function clearInvalid(){
+  form.querySelectorAll('.invalid').forEach(el => el.classList.remove('invalid'));
+  const banner = $('#formBanner');
+  banner.classList.remove('show');
+  banner.innerHTML = '';
+}
+
+function showErrors(errors){
+  const banner = $('#formBanner');
+  if(!errors.length){ banner.classList.remove('show'); banner.innerHTML=''; return; }
+  banner.innerHTML =
+    '<b>Please fix the following before continuing:</b><ul>' +
+    errors.map(e => `<li>${e}</li>`).join('') +
+    '</ul>';
+  banner.classList.add('show');
+  banner.scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+function validateForm(){
+  clearInvalid();
+  const errors = [];
+
+  const coverFields = [
+    ['student',     'Student name'],
+    ['degree',      'Degree title'],
+    ['compiled_by', 'Compiled by'],
+    ['date',        'Date'],
+    ['position',    'Position'],
+  ];
+  coverFields.forEach(([name, label]) => {
+    const el = form.elements[name];
+    if(!el) return;
+    if(!el.value.trim()){
+      el.classList.add('invalid');
+      errors.push(`${label} is required.`);
+    }
+  });
+
+  const blocks = yearsBox.querySelectorAll('.yearblock');
+  if(!blocks.length){
+    errors.push('Add at least one academic year with course codes.');
+  }
+  blocks.forEach((block, i) => {
+    const label = 'Year ' + (i + 1);
+    const yearSel = block.querySelector('select[name="years[]"]');
+    const codesTa = block.querySelector('textarea[name="courses[]"]');
+    const yr = (yearSel.value || '').trim();
+    if(!yr){
+      yearSel.classList.add('invalid');
+      errors.push(`${label}: pick an academic year.`);
+    } else if(!YEAR_RE.test(yr)){
+      yearSel.classList.add('invalid');
+      errors.push(`${label}: academic year must be in YYYY-YYYY format (got "${yr}").`);
+    }
+    const raw = (codesTa.value || '').trim();
+    if(!raw){
+      codesTa.classList.add('invalid');
+      errors.push(`${label}: enter at least one course code.`);
+    } else {
+      const codes = raw.split(/[\s,]+/).filter(Boolean);
+      const bad = codes.filter(c => !COURSE_CODE_RE.test(c));
+      if(bad.length){
+        codesTa.classList.add('invalid');
+        errors.push(`${label}: invalid course code${bad.length>1?'s':''}: ${bad.join(', ')} (expected letters+digits, e.g. PS2517).`);
+      }
+    }
+  });
+
+  const pm = $('#prefixMap');
+  const pmText = (pm.value || '').trim();
+  if(!pmText){
+    pm.classList.add('invalid');
+    errors.push('Prefix → subject mapping is empty. Add at least one PREFIX = subject line.');
+  } else {
+    const badLines = [];
+    pm.value.split('\n').forEach((line, idx) => {
+      const t = line.trim();
+      if(!t) return;
+      if(!PREFIX_LINE_RE.test(t)) badLines.push(idx + 1);
+    });
+    if(badLines.length){
+      pm.classList.add('invalid');
+      errors.push(`Prefix mapping line${badLines.length>1?'s':''} ${badLines.join(', ')}: use format PREFIX = subject_path.`);
+    } else {
+      const mapKeys = new Set(
+        pm.value.split('\n')
+          .map(l => (l.split('=')[0] || '').trim().toUpperCase())
+          .filter(Boolean)
+      );
+      const missing = new Set();
+      blocks.forEach(block => {
+        const raw = (block.querySelector('textarea[name="courses[]"]').value || '').trim();
+        raw.split(/[\s,]+/).filter(Boolean).forEach(c => {
+          const m = c.match(/^[A-Za-z]+/);
+          if(m && !mapKeys.has(m[0].toUpperCase())) missing.add(m[0].toUpperCase());
+        });
+      });
+      if(missing.size){
+        pm.classList.add('invalid');
+        errors.push(`No prefix mapping for: ${[...missing].join(', ')}. Add a line like <code>${[...missing][0]} = subject_path</code>.`);
+      }
+    }
+  }
+
+  showErrors(errors);
+  return errors.length === 0;
+}
+
+// clear the invalid state on a field as soon as the user starts fixing it
+form.addEventListener('input', e => {
+  if(e.target.classList && e.target.classList.contains('invalid')){
+    e.target.classList.remove('invalid');
+  }
+});
+form.addEventListener('change', e => {
+  if(e.target.classList && e.target.classList.contains('invalid')){
+    e.target.classList.remove('invalid');
+  }
+});
+
 async function doCheck(){
+  if(!validateForm()) return;
   const btns = [$('#checkBtn'), $('#checkBtn2')].filter(Boolean);
   btns.forEach(b=>busy(b, true, 'Fetching…'));
   try{
     const r = await fetch('/preview', {method:'POST', body:withManual()});
-    renderResults(await r.json());
+    const data = await r.json();
+    if(!r.ok && Array.isArray(data.validation_errors)){
+      showErrors(data.validation_errors);
+    } else {
+      renderResults(data);
+    }
   }catch(err){ alert('Error: '+err); }
   btns.forEach(b=>busy(b, false));
 }
 async function doGenerate(){
+  if(!validateForm()) return;
   const btns = [$('#genBtn'), $('#genBtn2')].filter(Boolean);
   btns.forEach(b=>busy(b, true, 'Building…'));
   try{
     const r = await fetch('/generate', {method:'POST', body:withManual()});
+    if(!r.ok){
+      const data = await r.json().catch(()=>({}));
+      if(Array.isArray(data.validation_errors)){
+        showErrors(data.validation_errors);
+        btns.forEach(b=>busy(b, false));
+        return;
+      }
+    }
     if(r.ok && (r.headers.get('content-type')||'').includes('word')){
       const blob = await r.blob();
       const cd = r.headers.get('content-disposition')||'';
@@ -781,8 +947,11 @@ $('#genBtn2').addEventListener('click', doGenerate);
         original = ta.value;
         setEditing(false);
         flash('Saved · ' + data.count + ' rule' + (data.count === 1 ? '' : 's'), 'ok');
+      } else if(Array.isArray(data.validation_errors) && data.validation_errors.length){
+        ta.classList.add('invalid');
+        flash(data.validation_errors[0], 'error');
       } else {
-        flash(data.error || 'Save failed', 'error');
+        flash(data.error || data.message || 'Save failed', 'error');
       }
     } catch(err){
       flash('Error: ' + err, 'error');

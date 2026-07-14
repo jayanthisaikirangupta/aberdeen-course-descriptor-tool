@@ -11,6 +11,7 @@ year and cover-page details, click Generate, and download the .docx.
 
 import os
 import io
+import re
 import json
 from flask import Flask, request, render_template, send_file, jsonify
 
@@ -100,17 +101,94 @@ def _parse_form(form):
     return config
 
 
+_YEAR_RE = re.compile(r"^\d{4}-\d{4}$")
+_CODE_RE = re.compile(r"^[A-Za-z]{1,5}\d{3,5}$")
+_PREFIX_LINE_RE = re.compile(r"^[A-Za-z]+\s*=\s*\S.*$")
+
+
+def _validate_config(config):
+    """Return a list of human-readable validation errors (empty list = OK)."""
+    errors = []
+
+    cover = config.get("cover", {}) or {}
+    for key, label in (("student", "Student name"), ("degree", "Degree title"),
+                        ("compiled_by", "Compiled by"), ("date", "Date"),
+                        ("position", "Position")):
+        if not str(cover.get(key, "") or "").strip():
+            errors.append(f"{label} is required.")
+
+    year_groups = config.get("years") or []
+    if not year_groups:
+        errors.append("Add at least one academic year with course codes.")
+    for i, g in enumerate(year_groups, start=1):
+        label = f"Year {i}"
+        yr = (g.get("year") or "").strip()
+        if not yr:
+            errors.append(f"{label}: pick an academic year.")
+        elif not _YEAR_RE.match(yr):
+            errors.append(f"{label}: academic year must be in YYYY-YYYY format (got '{yr}').")
+        codes = [c for c in (g.get("courses") or []) if str(c).strip()]
+        if not codes:
+            errors.append(f"{label}: enter at least one course code.")
+        bad = [c for c in codes if not _CODE_RE.match(c)]
+        if bad:
+            errors.append(f"{label}: invalid course code(s): {', '.join(bad)} (expected letters+digits, e.g. PS2517).")
+
+    prefix_map = config.get("prefix_map") or {}
+    if not prefix_map:
+        errors.append("Prefix → subject mapping is empty. Add at least one PREFIX = subject line.")
+    else:
+        map_keys = {str(k).strip().upper() for k in prefix_map.keys() if str(k).strip()}
+        missing = set()
+        for g in year_groups:
+            for c in (g.get("courses") or []):
+                m = re.match(r"^([A-Za-z]+)", str(c))
+                if m and m.group(1).upper() not in map_keys:
+                    missing.add(m.group(1).upper())
+        if missing:
+            example = sorted(missing)[0]
+            errors.append(
+                f"No prefix mapping for: {', '.join(sorted(missing))}. "
+                f"Add a line like '{example} = subject_path'."
+            )
+
+    return errors
+
+
+def _validation_response(errors):
+    return jsonify({
+        "ok": False,
+        "validation_errors": errors,
+        "message": "Please fix the form fields before continuing.",
+    }), 422
+
+
 @app.route("/save_prefix_map", methods=["POST"])
 def save_prefix_map():
     """Persist the Prefix → subject mapping to config.json."""
     text = request.form.get("prefix_map", "")
-    prefix_map = {}
-    for line in text.splitlines():
-        if "=" not in line:
+
+    prefix_map, bad_lines = {}, []
+    for idx, raw in enumerate(text.splitlines(), start=1):
+        line = raw.strip()
+        if not line:
+            continue
+        if not _PREFIX_LINE_RE.match(line):
+            bad_lines.append(idx)
             continue
         k, v = line.split("=", 1)
-        if k.strip() and v.strip():
-            prefix_map[k.strip().upper()] = v.strip()
+        prefix_map[k.strip().upper()] = v.strip()
+
+    errors = []
+    if not prefix_map and not bad_lines:
+        errors.append("Prefix → subject mapping is empty. Add at least one PREFIX = subject line.")
+    if bad_lines:
+        errors.append(
+            f"Line{'s' if len(bad_lines) > 1 else ''} {', '.join(str(n) for n in bad_lines)}: "
+            f"use format PREFIX = subject_path."
+        )
+    if errors:
+        return _validation_response(errors)
 
     path = os.path.join(HERE, "config.json")
     try:
@@ -129,6 +207,9 @@ def save_prefix_map():
 def preview():
     """Fetch + parse only; return per-course status as JSON (no document)."""
     config = _parse_form(request.form)
+    vld = _validate_config(config)
+    if vld:
+        return _validation_response(vld)
     courses, errors = core.build_all(config)
     return jsonify({
         "courses": [{"id": c["id"], "title": c["title"], "cp": c["cp"],
@@ -142,6 +223,9 @@ def preview():
 def generate():
     """Fetch, parse, build the .docx and stream it back as a download."""
     config = _parse_form(request.form)
+    vld = _validate_config(config)
+    if vld:
+        return _validation_response(vld)
     courses, errors = core.build_all(config)
     if not courses:
         return jsonify({"ok": False, "errors": errors,
