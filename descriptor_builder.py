@@ -144,7 +144,10 @@ def _section_lines(content, keywords, section_label=""):
     seen_bullets = set()
 
     def _norm(s):
-        return re.sub(r"\s+", " ", s).strip().lower().rstrip(":.")
+        # aggressive: whitespace-collapse, lowercase, strip all non-alphanumerics.
+        # catches duplicates that differ only by punctuation/casing/spacing.
+        s = re.sub(r"\s+", " ", s or "").strip().lower()
+        return re.sub(r"[^a-z0-9 ]", "", s).strip()
 
     def _covered_by_bullets(text, following):
         bullets = []
@@ -161,6 +164,13 @@ def _section_lines(content, keywords, section_label=""):
             return False
         return n == joined or n in joined
 
+    def _is_covered_by_prior(n):
+        # already-emitted paragraph fully contains this new one \u2192 skip
+        for prev in seen_norm:
+            if n and (n == prev or n in prev):
+                return True
+        return False
+
     label_norm = _norm(section_label) if section_label else ""
     all_next = head.find_all_next()
     for i, el in enumerate(all_next):
@@ -175,7 +185,7 @@ def _section_lines(content, keywords, section_label=""):
                 continue
             if label_norm and n == label_norm:
                 continue
-            if n in seen_norm:
+            if _is_covered_by_prior(n):
                 continue
             if _covered_by_bullets(t, all_next[i + 1:]):
                 continue
@@ -184,7 +194,7 @@ def _section_lines(content, keywords, section_label=""):
         elif el.name == "li":
             t = el.get_text(" ", strip=True)
             n = _norm(t)
-            if t and n not in seen_bullets:
+            if t and n and n not in seen_bullets:
                 seen_bullets.add(n)
                 out.append("\u2022 " + t)
     return out
@@ -245,10 +255,11 @@ def _assessment_items(content, keywords):
     head = _find_heading(content, keywords)
     if not head:
         return [], ""
-    items, texts, seen = [], [], set()
+    items, texts, seen, seen_items = [], [], set(), set()
 
     def _norm(s):
-        return re.sub(r"\s+", " ", s).strip().lower().rstrip(":.")
+        s = re.sub(r"\s+", " ", s or "").strip().lower()
+        return re.sub(r"[^a-z0-9 ]", "", s).strip()
 
     for el in head.find_all_next():
         if el.name in ("h2", "h3"):
@@ -264,6 +275,10 @@ def _assessment_items(content, keywords):
                 if m:
                     weight = m.group(1)
             if name:
+                key = (_norm(name), weight)
+                if key in seen_items:
+                    continue
+                seen_items.add(key)
                 items.append((name, weight))
         elif el.name in ("p", "li"):
             t = el.get_text(" ", strip=True)
@@ -273,7 +288,11 @@ def _assessment_items(content, keywords):
             if "subject to change" in low:
                 continue
             n = _norm(t)
-            if n in _SKIP_ASSESSMENT_SUBHEADINGS or n in seen:
+            if not n or n in _SKIP_ASSESSMENT_SUBHEADINGS or n in seen:
+                continue
+            # skip paragraphs that just restate an already-listed h4 item
+            if any(n == item_key or n in item_key or item_key in n
+                   for (item_key, _) in seen_items):
                 continue
             seen.add(n)
             texts.append(("• " + t) if el.name == "li" else t)
@@ -337,6 +356,21 @@ def parse_course(html, code, url):
 
     overview = "\n".join(_section_lines(content, ["course overview"], "Course Overview"))
     desc = "\n".join(_section_lines(content, ["course description"], "Course Description"))
+
+    # older catalogue pages use different headings for the same content, or
+    # leave the description as a placeholder ("see course page"). Fall back to
+    # alternative section names so the descriptor isn't left empty.
+    def _too_thin(text):
+        stripped = re.sub(r"[^a-z0-9]", "", (text or "").lower())
+        return len(stripped) < 40 or stripped in {"seecoursepage", "nocoursedescription"}
+
+    if _too_thin(desc):
+        for alt in (["aims and objectives"], ["course aims"], ["aims"],
+                    ["syllabus"], ["main learning outcomes"], ["learning outcomes"]):
+            alt_desc = "\n".join(_section_lines(content, alt, alt[0].title()))
+            if not _too_thin(alt_desc):
+                desc = alt_desc
+                break
 
     return {
         "id": code.upper(),

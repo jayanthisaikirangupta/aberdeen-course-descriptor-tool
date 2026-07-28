@@ -102,7 +102,7 @@ def _parse_form(form):
 
 
 _YEAR_RE = re.compile(r"^\d{4}-\d{4}$")
-_CODE_RE = re.compile(r"^[A-Za-z]{1,5}\d{3,5}$")
+_CODE_RE = re.compile(r"^[A-Za-z]{1,5}\d{2,5}(?:[A-Za-z]\d{1,3})?$")
 _PREFIX_LINE_RE = re.compile(r"^[A-Za-z]+\s*=\s*\S.*$")
 
 
@@ -197,9 +197,27 @@ def save_prefix_map():
     except (OSError, json.JSONDecodeError):
         cfg = {}
     cfg["prefix_map"] = prefix_map
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(cfg, f, indent=2, ensure_ascii=False)
-        f.write("\n")
+
+    # atomic write: write to temp then os.replace, so a locked config.json
+    # (Windows antivirus, editor holding the file) fails cleanly instead of
+    # leaving a half-written file behind.
+    tmp_path = path + ".tmp"
+    try:
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+        os.replace(tmp_path, path)
+    except OSError as e:
+        try:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+        except OSError:
+            pass
+        return jsonify({
+            "ok": False,
+            "message": f"Could not write config.json: {e}. "
+                       "Close the file in any editor and try again.",
+        }), 500
     return jsonify({"ok": True, "prefix_map": prefix_map, "count": len(prefix_map)})
 
 
