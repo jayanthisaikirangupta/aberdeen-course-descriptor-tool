@@ -730,7 +730,7 @@ function busy(btn, on, txt){
 ['#checkBtn','#checkBtn2','#genBtn','#genBtn2'].forEach(id => { const b = $(id); if(b) b.dataset.label = b.innerHTML; });
 
 // ---------- form validation ----------
-const COURSE_CODE_RE = /^[A-Za-z]{1,5}\d{2,5}(?:[A-Za-z]\d{1,3})?$/;
+const COURSE_CODE_RE = /^[A-Za-z]{1,5}\d{2,5}(?:[A-Za-z]\d{0,3})?$/;
 const YEAR_RE = /^\d{4}-\d{4}$/;
 const PREFIX_LINE_RE = /^[A-Za-z]+\s*=\s*\S.*$/;
 

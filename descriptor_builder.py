@@ -119,6 +119,34 @@ def _content(soup):
             or soup.body or soup)
 
 
+def _is_descendant(el, ancestor):
+    """True if ``el`` is a descendant of ``ancestor`` (or is ``ancestor``)."""
+    node = el
+    while node is not None:
+        if node is ancestor:
+            return True
+        node = node.parent
+    return False
+
+
+# Text patterns that indicate we've walked past the page's main content into
+# the site's global footer / cookie / accessibility strip. Used as a hard
+# stop when scanning forward from a section heading.
+_FOOTER_MARKERS = (
+    "university of aberdeen is a charity",
+    "accessibility statement",
+    "freedom of information",
+    "privacy statement",
+    "king's college aberdeen",
+    "©", "©",
+)
+
+
+def _looks_like_footer(text):
+    low = (text or "").lower()
+    return any(m in low for m in _FOOTER_MARKERS)
+
+
 def _find_heading(content, keywords):
     for h in content.find_all(["h2", "h3"]):
         t = h.get_text(" ", strip=True).lower()
@@ -140,8 +168,10 @@ def _section_lines(content, keywords, section_label=""):
     if not head:
         return []
     out = []
-    seen_norm = set()      # dedupe against everything already emitted
-    seen_bullets = set()
+    # single set — a bullet <li> and an identical <p> paragraph both count as
+    # the same content and should not both appear (Aberdeen pages sometimes
+    # duplicate content in both forms).
+    seen_norm = set()
 
     def _norm(s):
         # aggressive: whitespace-collapse, lowercase, strip all non-alphanumerics.
@@ -174,12 +204,23 @@ def _section_lines(content, keywords, section_label=""):
     label_norm = _norm(section_label) if section_label else ""
     all_next = head.find_all_next()
     for i, el in enumerate(all_next):
+        # stop once we leave the main content container (prevents footer /
+        # site-wide navigation from being pulled into a course section)
+        if not _is_descendant(el, content):
+            break
         if el.name in ("h2", "h3"):
             break
         if el.name == "p":
+            # Aberdeen pages sometimes emit malformed <p><p>...</p></p>
+            # nesting. Skip a wrapper <p> that itself contains child <p>
+            # tags — the inner ones will be visited individually next.
+            if el.find("p") is not None:
+                continue
             t = el.get_text(" ", strip=True)
             if not t:
                 continue
+            if _looks_like_footer(t):
+                break
             n = _norm(t)
             if not n:
                 continue
@@ -193,11 +234,33 @@ def _section_lines(content, keywords, section_label=""):
             out.append(t)
         elif el.name == "li":
             t = el.get_text(" ", strip=True)
+            if _looks_like_footer(t):
+                break
             n = _norm(t)
-            if t and n and n not in seen_bullets:
-                seen_bullets.add(n)
+            if t and n and n not in seen_norm:
+                seen_norm.add(n)
                 out.append("\u2022 " + t)
     return out
+
+
+def _cell_text(cell):
+    """Cell text preserving list-item line breaks.
+
+    Cells that hold a <ul>/<ol> (co-ordinators, sometimes assessments) join
+    items with '\\n' so multi-person / multi-item values render on separate
+    lines. Other cells stay single-line for compact labels/values.
+    """
+    if cell.find(["ul", "ol"]):
+        items = [li.get_text(" ", strip=True)
+                 for li in cell.find_all("li")
+                 if li.get_text(strip=True)]
+        # also pull any stray text that lives OUTSIDE the list within the cell
+        list_text = " ".join(items)
+        cell_text = cell.get_text(" ", strip=True)
+        prefix = cell_text.replace(list_text, "").strip() if items else cell_text
+        parts = ([prefix] if prefix else []) + items
+        return "\n".join(p for p in parts if p)
+    return cell.get_text(" ", strip=True)
 
 
 def _details_table(content):
@@ -206,7 +269,8 @@ def _details_table(content):
     for table in content.find_all("table"):
         if "Credit Points" in table.get_text():
             for tr in table.find_all("tr"):
-                cells = [c.get_text(" ", strip=True) for c in tr.find_all(["td", "th"])]
+                cells_raw = tr.find_all(["td", "th"])
+                cells = [_cell_text(c) for c in cells_raw]
                 i = 0
                 while i + 1 < len(cells):
                     label, val = cells[i], cells[i + 1]
@@ -261,9 +325,18 @@ def _assessment_items(content, keywords):
         s = re.sub(r"\s+", " ", s or "").strip().lower()
         return re.sub(r"[^a-z0-9 ]", "", s).strip()
 
+    # When we enter a "Feedback" / "Learning outcomes" sub-block (h4 or h5)
+    # inside this assessment section, its paragraphs belong to that sub-block
+    # (Feedback gets its own rendered section) — skip until we exit it.
+    in_skip_subblock = False
     for el in head.find_all_next():
+        if not _is_descendant(el, content):
+            break
         if el.name in ("h2", "h3"):
             break
+        if el.name in ("h4", "h5"):
+            sub = el.get_text(" ", strip=True).strip().lower().rstrip(":.")
+            in_skip_subblock = sub in _SKIP_ASSESSMENT_SUBHEADINGS
         if el.name == "h4":
             name = el.get_text(" ", strip=True)
             if name.strip().lower() in _SKIP_ASSESSMENT_SUBHEADINGS:
@@ -281,9 +354,13 @@ def _assessment_items(content, keywords):
                 seen_items.add(key)
                 items.append((name, weight))
         elif el.name in ("p", "li"):
+            if in_skip_subblock:
+                continue
             t = el.get_text(" ", strip=True)
             if not t:
                 continue
+            if _looks_like_footer(t):
+                break
             low = t.lower()
             if "subject to change" in low:
                 continue
@@ -296,6 +373,27 @@ def _assessment_items(content, keywords):
                 continue
             seen.add(n)
             texts.append(("• " + t) if el.name == "li" else t)
+
+    # Some catalogue pages emit a "combined" summary that concatenates every
+    # individual assessment (e.g. "Essay 20% Lab 20% Open book 40%") IN
+    # ADDITION to the individual entries — either as an extra h4 or as an
+    # extra <p>/<li>. Drop any entry whose text substring-contains 2+ other
+    # entries' text; that's the summary form.
+    def _drop_summaries(entries, textfn):
+        if len(entries) <= 2:
+            return entries
+        norms = [_norm(textfn(e)) for e in entries]
+        out = []
+        for i, ni in enumerate(norms):
+            covers = sum(1 for j, nj in enumerate(norms)
+                         if i != j and nj and nj in ni)
+            if covers < 2:
+                out.append(entries[i])
+        return out
+
+    items = _drop_summaries(items, lambda it: it[0])
+    texts = _drop_summaries(texts, lambda t: t)
+
     return items, "\n".join(texts)
 
 
@@ -328,6 +426,47 @@ def _find_alt_resit(content):
 
 def _fmt_items(items):
     return "\n".join(f"{n}: {w}%" if w else n for n, w in items)
+
+
+def _feedback_text(content):
+    """Collect Feedback sub-section text.
+
+    Aberdeen pages use an h5 'Feedback' heading (usually inside Summative or
+    Resit sections) followed by paragraphs describing feedback delivery. We
+    walk every 'Feedback' heading found and join the paragraphs beneath it,
+    stopping at the next same-or-higher-level heading or the page footer.
+    """
+    out, seen = [], set()
+
+    def _norm(s):
+        s = re.sub(r"\s+", " ", s or "").strip().lower()
+        return re.sub(r"[^a-z0-9 ]", "", s).strip()
+
+    for h in content.find_all(["h2", "h3", "h4", "h5"]):
+        label = h.get_text(" ", strip=True).lower().strip().rstrip(":.")
+        if label != "feedback":
+            continue
+        stop_levels = {"h2", "h3", "h4", "h5"}
+        # allow deeper headings under this one but stop at siblings-or-higher
+        this_level = h.name
+        for el in h.find_all_next():
+            if not _is_descendant(el, content):
+                break
+            if el.name in stop_levels and el.name <= this_level:
+                break
+            if el.name not in ("p", "li"):
+                continue
+            t = el.get_text(" ", strip=True)
+            if not t or _looks_like_footer(t):
+                if _looks_like_footer(t):
+                    break
+                continue
+            n = _norm(t)
+            if not n or n in seen:
+                continue
+            seen.add(n)
+            out.append(("• " + t) if el.name == "li" else t)
+    return "\n".join(out)
 
 
 def _title(content, code):
@@ -365,12 +504,14 @@ def parse_course(html, code, url):
         return len(stripped) < 40 or stripped in {"seecoursepage", "nocoursedescription"}
 
     if _too_thin(desc):
-        for alt in (["aims and objectives"], ["course aims"], ["aims"],
-                    ["syllabus"], ["main learning outcomes"], ["learning outcomes"]):
+        for alt in (["aims and objectives"], ["course aims"],
+                    ["syllabus"], ["main learning outcomes"]):
             alt_desc = "\n".join(_section_lines(content, alt, alt[0].title()))
             if not _too_thin(alt_desc):
                 desc = alt_desc
                 break
+
+    feedback = _feedback_text(content)
 
     return {
         "id": code.upper(),
@@ -383,6 +524,7 @@ def parse_course(html, code, url):
         "summative": _fmt_items(summ_items) or summ_text or "See course page",
         "formative": formative_text or "There are no assessments for this course.",
         "resit": _fmt_items(resit_items) or resit_text or alt_resit or "See course page",
+        "feedback": feedback or "Not available for this course",
         "url": url,
     }
 
@@ -476,6 +618,44 @@ def _tight(p):
     return p
 
 
+_HYPERLINK_REL = ("http://schemas.openxmlformats.org/officeDocument/2006/"
+                  "relationships/hyperlink")
+
+
+def _add_hyperlink(paragraph, url, text):
+    """Append a real clickable hyperlink run to ``paragraph``.
+
+    python-docx has no first-class hyperlink API, so we build the w:hyperlink
+    element by hand and register the external relationship on the doc part.
+    """
+    part = paragraph.part
+    r_id = part.relate_to(url, _HYPERLINK_REL, is_external=True)
+
+    hyperlink = OxmlElement("w:hyperlink")
+    hyperlink.set(qn("r:id"), r_id)
+
+    run = OxmlElement("w:r")
+    r_pr = OxmlElement("w:rPr")
+
+    color = OxmlElement("w:color")
+    color.set(qn("w:val"), "0563C1")
+    r_pr.append(color)
+
+    underline = OxmlElement("w:u")
+    underline.set(qn("w:val"), "single")
+    r_pr.append(underline)
+
+    run.append(r_pr)
+
+    t = OxmlElement("w:t")
+    t.text = text
+    t.set(qn("xml:space"), "preserve")
+    run.append(t)
+
+    hyperlink.append(run)
+    paragraph._p.append(hyperlink)
+
+
 def _label_in(cell, text):
     p = cell.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.LEFT
@@ -489,6 +669,25 @@ def _plain_in(cell, text):
     p.alignment = WD_ALIGN_PARAGRAPH.LEFT
     _tight(p)
     return p
+
+
+def _sublabel_in(cell, text):
+    """Bold sub-heading used for 'Summative Assessments', 'Feedback', etc."""
+    p = cell.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    _tight(p)
+    r = p.add_run(str(text))
+    r.bold = True
+    return p
+
+
+def _row_cannot_split(row):
+    """Force Word to keep this row on a single page instead of splitting it."""
+    trPr = row._tr.get_or_add_trPr()
+    existing = trPr.find(qn("w:cantSplit"))
+    if existing is None:
+        cant = OxmlElement("w:cantSplit")
+        trPr.append(cant)
 
 
 def _text_in(cell, text, bullets=True):
@@ -560,14 +759,17 @@ def _course_table(doc, course):
     _spacer(body)
 
     _label_in(body, "Assessment & Feedback:")
-    _plain_in(body, "Summative Assessments")
+    _sublabel_in(body, "Summative Assessments")
     _text_in(body, course["summative"])
     _spacer(body)
-    _plain_in(body, "Formative Assessment")
+    _sublabel_in(body, "Formative Assessment")
     _text_in(body, course["formative"], bullets=False)
     _spacer(body)
-    _plain_in(body, "Resit Assessments")
+    _sublabel_in(body, "Resit Assessments")
     _text_in(body, course["resit"])
+    _spacer(body)
+    _sublabel_in(body, "Feedback")
+    _text_in(body, course.get("feedback", "Not available for this course"), bullets=False)
 
     # ---- borders: outer frame only on the header row (no verticals between
     # code / title / credits); full frame on the merged content row ----
@@ -575,6 +777,12 @@ def _course_table(doc, course):
     _set_cell_border(hdr[1], edges=("top", "bottom"))
     _set_cell_border(hdr[2], edges=("top", "right", "bottom"))
     _set_cell_border(body, edges=("top", "left", "bottom", "right"))
+
+    # Keep each row on a single page — if the merged content row is too tall
+    # to fit, Word will push the whole table onto the next page instead of
+    # splitting it (which was rendering as duplicated content across pages).
+    for row in tbl.rows:
+        _row_cannot_split(row)
 
     # trailing spacer so consecutive tables don't touch
     doc.add_paragraph()
@@ -643,8 +851,11 @@ def build_document(cover, courses, years, logo_path=None):
     p_url = doc.add_paragraph(); p_url.alignment = WD_ALIGN_PARAGRAPH.LEFT
     p_url.add_run(
         "The Catalogue of Courses archive can be accessed on the University of Aberdeen "
-        "website at the following URL: https://www.abdn.ac.uk/registry/courses/."
+        "website at the following URL: "
     )
+    _add_hyperlink(p_url, "https://www.abdn.ac.uk/registry/courses/",
+                   "https://www.abdn.ac.uk/registry/courses/")
+    p_url.add_run(".")
     p2 = doc.add_paragraph(); p2.alignment = WD_ALIGN_PARAGRAPH.LEFT
     p2.add_run(
         "At the University of Aberdeen, a credit point is defined as ‘the outcome of learning "

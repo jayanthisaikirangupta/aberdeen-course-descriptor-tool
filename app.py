@@ -102,7 +102,7 @@ def _parse_form(form):
 
 
 _YEAR_RE = re.compile(r"^\d{4}-\d{4}$")
-_CODE_RE = re.compile(r"^[A-Za-z]{1,5}\d{2,5}(?:[A-Za-z]\d{1,3})?$")
+_CODE_RE = re.compile(r"^[A-Za-z]{1,5}\d{2,5}(?:[A-Za-z]\d{0,3})?$")
 _PREFIX_LINE_RE = re.compile(r"^[A-Za-z]+\s*=\s*\S.*$")
 
 
