@@ -615,6 +615,9 @@ def _tight(p):
     """Match the tight paragraph spacing used in the sample PDFs."""
     p.paragraph_format.space_before = Pt(0)
     p.paragraph_format.space_after = Pt(0)
+    # Force single line spacing — Word's default Normal style is often
+    # 1.15 which eats ~15% more vertical space than needed.
+    p.paragraph_format.line_spacing = 1.0
     return p
 
 
@@ -843,7 +846,10 @@ def build_document(cover, courses, years, logo_path=None):
     doc = Document()
     normal = doc.styles["Normal"]
     normal.font.name = "Calibri"
-    normal.font.size = Pt(11)
+    # 10pt (down from 11pt) recovers ~1 line per 8 lines of content — enough
+    # so the typical Aberdeen course fits on a single page without spilling
+    # 2-3 trailing lines (Resit / Feedback) onto a sparse continuation page.
+    normal.font.size = Pt(10)
 
     sec = doc.sections[0]
     # Tighter top/bottom margins give ~0.5 extra inch of usable page height
