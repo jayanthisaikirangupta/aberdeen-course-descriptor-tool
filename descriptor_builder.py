@@ -690,6 +690,15 @@ def _row_cannot_split(row):
         trPr.append(cant)
 
 
+def _row_keep_with_next(row):
+    """Set keep-with-next on every paragraph in the row so Word doesn't
+    place this row on one page and the following row on the next.
+    """
+    for cell in row.cells:
+        for p in cell.paragraphs:
+            p.paragraph_format.keep_with_next = True
+
+
 def _text_in(cell, text, bullets=True):
     """Write multi-line text into a cell.
 
@@ -778,14 +787,12 @@ def _course_table(doc, course):
     _set_cell_border(hdr[2], edges=("top", "right", "bottom"))
     _set_cell_border(body, edges=("top", "left", "bottom", "right"))
 
-    # Keep each row on a single page — if the merged content row is too tall
-    # to fit, Word will push the whole table onto the next page instead of
-    # splitting it (which was rendering as duplicated content across pages).
+    # Keep each row on a single page, and glue the header row to the body row
+    # so Word never renders the header alone at the bottom of one page with a
+    # big blank gap while the body drops onto the next page.
     for row in tbl.rows:
         _row_cannot_split(row)
-
-    # trailing spacer so consecutive tables don't touch
-    doc.add_paragraph()
+    _row_keep_with_next(tbl.rows[0])
 
 
 def build_document(cover, courses, years, logo_path=None):
@@ -899,8 +906,13 @@ def build_document(cover, courses, years, logo_path=None):
             msg = "The following descriptors are correct as of the year(s) of study below:"
         r = intro_year.add_run(msg)
         r.bold = True
+        # glue year intro to the first course table so they share a page
+        intro_year.paragraph_format.keep_with_next = True
 
-        for c in grouped[y]:
+        for idx, c in enumerate(grouped[y]):
+            # every course after the first in a year starts on its own page
+            if idx > 0:
+                doc.add_page_break()
             _course_table(doc, c)
 
     return doc
