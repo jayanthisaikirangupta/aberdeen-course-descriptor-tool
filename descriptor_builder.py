@@ -614,12 +614,15 @@ def _set_cell_border(cell, edges=("top", "left", "bottom", "right")):
 
 
 def _tight(p):
-    """Match the tight paragraph spacing used in the sample PDFs."""
+    """Match the tight paragraph spacing used in the sample PDFs.
+
+    NOTE: intentionally does NOT force line_spacing = 1.0. Word's default
+    Normal-style spacing (1.15) produces the airy, readable feel of the
+    manual reference documents; forcing single spacing made every course
+    look cramped.
+    """
     p.paragraph_format.space_before = Pt(0)
     p.paragraph_format.space_after = Pt(0)
-    # Force single line spacing — Word's default Normal style is often
-    # 1.15 which eats ~15% more vertical space than needed.
-    p.paragraph_format.line_spacing = 1.0
     return p
 
 
@@ -723,13 +726,10 @@ def _text_in(cell, text, bullets=True):
 
 
 def _spacer(cell):
-    """A tight blank line between sections. Uses a small font so it takes
-    less vertical space than a full-height empty paragraph would."""
-    p = cell.add_paragraph()
-    _tight(p)
-    r = p.add_run("")
-    r.font.size = Pt(6)
-    return p
+    """A blank paragraph between sections. Full-height (inherits the
+    Normal-style font size) so the sections have proper breathing room,
+    matching the airy feel of the manual reference documents."""
+    return _tight(cell.add_paragraph())
 
 
 def _course_table(doc, course, page_break_before=False):
@@ -848,16 +848,17 @@ def build_document(cover, courses, years, logo_path=None):
     doc = Document()
     normal = doc.styles["Normal"]
     normal.font.name = "Calibri"
-    # 10pt (down from 11pt) recovers ~1 line per 8 lines of content — enough
-    # so the typical Aberdeen course fits on a single page without spilling
-    # 2-3 trailing lines (Resit / Feedback) onto a sparse continuation page.
-    normal.font.size = Pt(10)
+    # 11pt Calibri matches the readable feel of the manual reference
+    # documents. Earlier we shrunk to 10pt to force everything onto single
+    # pages, but the result looked cramped; tall courses now spill to a
+    # second page (as they did in the original tool output).
+    normal.font.size = Pt(11)
 
     sec = doc.sections[0]
-    # Tighter top/bottom margins give ~0.5 extra inch of usable page height
-    # so an average course fits on a single page instead of spilling 2-3
-    # trailing lines (Resit / Feedback) onto a sparse continuation page.
-    sec.top_margin = Inches(0.5); sec.bottom_margin = Inches(0.7)
+    # Restore the original generous margins that match the manual reference
+    # documents' visual polish. Tall courses will flow onto a 2nd page
+    # rather than cram everything onto one via tiny margins.
+    sec.top_margin = Inches(0.7); sec.bottom_margin = Inches(1.0)
     sec.left_margin = Inches(0.9); sec.right_margin = Inches(0.9)
 
     # repeating header logo, with breathing room below so body text
@@ -952,8 +953,12 @@ def build_document(cover, courses, years, logo_path=None):
         intro_year.paragraph_format.keep_with_next = True
 
         for idx, c in enumerate(grouped[y]):
-            # every course after the first in a year starts on its own page
-            _course_table(doc, c, page_break_before=(idx > 0))
+            # Let courses flow naturally within the year — matches the
+            # manual reference documents where a short course may share a
+            # page with the tail of another. The atomic single-row table
+            # (created in _course_table) still keeps each course's header
+            # glued to its own body, so no header/body split occurs.
+            _course_table(doc, c, page_break_before=False)
         first_year = False
 
     return doc
