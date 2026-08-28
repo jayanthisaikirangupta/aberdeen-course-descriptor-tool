@@ -485,7 +485,7 @@ def parse_course(html, code, url):
     cp, ects = _credits(details)
     summ_items, summ_text = _assessment_items(content, ["summative assessment"])
     resit_items, resit_text = _assessment_items(content, ["resit"])
-    _, formative_text = _assessment_items(content, ["formative assessment"])
+    formative_items, formative_text = _assessment_items(content, ["formative assessment"])
 
     # Older catalogue pages often lack a Resit heading — the info is inline as
     # 'Alternative Resit Arrangements: ...' inside Summative Assessments.
@@ -522,8 +522,10 @@ def parse_course(html, code, url):
         "overview": overview or "(no overview found)",
         "desc": desc or "(no description found)",
         "summative": _fmt_items(summ_items) or summ_text or "See course page",
-        "formative": formative_text or "There are no assessments for this course.",
-        "resit": _fmt_items(resit_items) or resit_text or alt_resit or "See course page",
+        "formative": _fmt_items(formative_items) or formative_text
+                     or "There are no assessments for this course.",
+        "resit": _fmt_items(resit_items) or resit_text or alt_resit
+                 or "Not specified for this course",
         "feedback": feedback or "Not available for this course",
         "url": url,
     }
