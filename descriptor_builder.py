@@ -778,6 +778,11 @@ def _course_table(doc, course, page_break_before=False):
     _set_cell_border(hcells[0], edges=("bottom",))
     _set_cell_border(hcells[1], edges=("bottom",))
     _set_cell_border(hcells[2], edges=("bottom",))
+    # Keep the header banner intact (single row, atomic).
+    _row_cannot_split(hdr_tbl.rows[0])
+    # Glue the header banner to the first body paragraph so the banner
+    # never sits alone at the bottom of a page.
+    _row_keep_with_next(hdr_tbl.rows[0])
 
     # ---- body content ----
     _label_in(body, "Course Coordinator(s):")
@@ -805,10 +810,12 @@ def _course_table(doc, course, page_break_before=False):
     _sublabel_in(body, "Feedback")
     _text_in(body, course.get("feedback", "Not available for this course"), bullets=False)
 
-    # Full frame around the whole course; single row means Word can't split
-    # the course at a row boundary.
+    # Full frame around the whole course. We intentionally DO NOT set
+    # cantSplit on the outer row — cantSplit on a row taller than a page
+    # makes Word render through the bottom margin (overlapping the footer);
+    # letting the row split at paragraph boundaries lets a tall course
+    # overflow onto the next page cleanly instead.
     _set_cell_border(body, edges=("top", "left", "bottom", "right"))
-    _row_cannot_split(tbl.rows[0])
 
 
 def build_document(cover, courses, years, logo_path=None):
