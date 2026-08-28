@@ -718,7 +718,13 @@ def _text_in(cell, text, bullets=True):
 
 
 def _spacer(cell):
-    _tight(cell.add_paragraph())
+    """A tight blank line between sections. Uses a small font so it takes
+    less vertical space than a full-height empty paragraph would."""
+    p = cell.add_paragraph()
+    _tight(p)
+    r = p.add_run("")
+    r.font.size = Pt(6)
+    return p
 
 
 def _course_table(doc, course, page_break_before=False):
@@ -840,7 +846,10 @@ def build_document(cover, courses, years, logo_path=None):
     normal.font.size = Pt(11)
 
     sec = doc.sections[0]
-    sec.top_margin = Inches(0.7); sec.bottom_margin = Inches(1.0)
+    # Tighter top/bottom margins give ~0.5 extra inch of usable page height
+    # so an average course fits on a single page instead of spilling 2-3
+    # trailing lines (Resit / Feedback) onto a sparse continuation page.
+    sec.top_margin = Inches(0.5); sec.bottom_margin = Inches(0.7)
     sec.left_margin = Inches(0.9); sec.right_margin = Inches(0.9)
 
     # repeating header logo, with breathing room below so body text
