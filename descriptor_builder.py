@@ -721,40 +721,65 @@ def _spacer(cell):
     _tight(cell.add_paragraph())
 
 
-def _course_table(doc, course):
-    """One course = one bordered table: header row (code | title | credits), merged content row."""
-    tbl = doc.add_table(rows=2, cols=3)
+def _course_table(doc, course, page_break_before=False):
+    """One course = one bordered table.
+
+    Single-row single-cell OUTER table (atomic; can't be split at a row
+    boundary because there's only one row). Inside the cell:
+      * a nested 1-row 3-column table acts as the header banner
+        (code | title | credit points) — mirrors the manual reference layout,
+      * then the body paragraphs (Coordinator, Overview, Description,
+        Assessment & Feedback, Feedback).
+
+    ``page_break_before=True`` forces the course to start on a new page
+    by setting w:pageBreakBefore on the FIRST paragraph inside the cell —
+    this avoids the "phantom empty page" that doc.add_page_break() causes
+    (an extra empty paragraph that lands on its own page).
+    """
+    tbl = doc.add_table(rows=1, cols=1)
     tbl.autofit = False
     tbl.allow_autofit = False
+    tbl.rows[0].cells[0].width = Inches(6.7)
 
-    # ---- header row ----
-    hdr = tbl.rows[0].cells
-    widths = [Inches(1.4), Inches(3.4), Inches(1.9)]
-    for i, w in enumerate(widths):
-        hdr[i].width = w
-
-    p = hdr[0].paragraphs[0]; p.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    _tight(p)
-    r = p.add_run(course["id"]); r.bold = True
-
-    p = hdr[1].paragraphs[0]; p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    _tight(p)
-    r = p.add_run(course["title"]); r.bold = True
-
-    p = hdr[2].paragraphs[0]; p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-    _tight(p)
-    r = p.add_run("Credit Points: " + str(course["cp"])); r.bold = True
-    p2 = hdr[2].add_paragraph(); p2.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-    _tight(p2)
-    r2 = p2.add_run("(ECTS Credits: " + str(course["ects"]) + ")"); r2.bold = True
-
-    # ---- content row (merge the three cells) ----
-    body_cells = tbl.rows[1].cells
-    body = body_cells[0].merge(body_cells[1]).merge(body_cells[2])
-    # Remove the empty default paragraph so we start clean.
+    body = tbl.rows[0].cells[0]
+    # Nuke the empty default paragraph so we start with clean content.
     first_p = body.paragraphs[0]
     first_p._element.getparent().remove(first_p._element)
 
+    # ---- header banner (nested 3-column table) ----
+    hdr_tbl = body.add_table(rows=1, cols=3)
+    hdr_tbl.autofit = False
+    hdr_tbl.allow_autofit = False
+    hcells = hdr_tbl.rows[0].cells
+    for i, w in enumerate([Inches(1.4), Inches(3.4), Inches(1.9)]):
+        hcells[i].width = w
+
+    p = hcells[0].paragraphs[0]; p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    _tight(p)
+    r = p.add_run(course["id"]); r.bold = True
+    if page_break_before:
+        # Force the whole course onto its own page — set on the very first
+        # paragraph of the cell content.
+        p.paragraph_format.page_break_before = True
+
+    p = hcells[1].paragraphs[0]; p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    _tight(p)
+    r = p.add_run(course["title"]); r.bold = True
+
+    p = hcells[2].paragraphs[0]; p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    _tight(p)
+    r = p.add_run("Credit Points: " + str(course["cp"])); r.bold = True
+    p2 = hcells[2].add_paragraph(); p2.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    _tight(p2)
+    r2 = p2.add_run("(ECTS Credits: " + str(course["ects"]) + ")"); r2.bold = True
+
+    # Nested header cells: only a bottom divider so it looks like the
+    # original layout (no vertical lines between code/title/credits).
+    _set_cell_border(hcells[0], edges=("bottom",))
+    _set_cell_border(hcells[1], edges=("bottom",))
+    _set_cell_border(hcells[2], edges=("bottom",))
+
+    # ---- body content ----
     _label_in(body, "Course Coordinator(s):")
     _text_in(body, course["coord"], bullets=False)
     _spacer(body)
@@ -780,19 +805,10 @@ def _course_table(doc, course):
     _sublabel_in(body, "Feedback")
     _text_in(body, course.get("feedback", "Not available for this course"), bullets=False)
 
-    # ---- borders: outer frame only on the header row (no verticals between
-    # code / title / credits); full frame on the merged content row ----
-    _set_cell_border(hdr[0], edges=("top", "left", "bottom"))
-    _set_cell_border(hdr[1], edges=("top", "bottom"))
-    _set_cell_border(hdr[2], edges=("top", "right", "bottom"))
+    # Full frame around the whole course; single row means Word can't split
+    # the course at a row boundary.
     _set_cell_border(body, edges=("top", "left", "bottom", "right"))
-
-    # Keep each row on a single page, and glue the header row to the body row
-    # so Word never renders the header alone at the bottom of one page with a
-    # big blank gap while the body drops onto the next page.
-    for row in tbl.rows:
-        _row_cannot_split(row)
-    _row_keep_with_next(tbl.rows[0])
+    _row_cannot_split(tbl.rows[0])
 
 
 def build_document(cover, courses, years, logo_path=None):
@@ -895,10 +911,8 @@ def build_document(cover, courses, years, logo_path=None):
     ordered_years = [y for y in year_list if y in grouped]
     ordered_years += [y for y in order if y not in ordered_years]
 
+    first_year = True
     for y in ordered_years:
-        # each year's section starts on its own page
-        doc.add_page_break()
-
         intro_year = doc.add_paragraph()
         if y:
             msg = "The following descriptors are correct for the academic year " + y + ":"
@@ -906,14 +920,17 @@ def build_document(cover, courses, years, logo_path=None):
             msg = "The following descriptors are correct as of the year(s) of study below:"
         r = intro_year.add_run(msg)
         r.bold = True
-        # glue year intro to the first course table so they share a page
+        # Each year intro starts on a new page. Using page_break_before on
+        # the paragraph itself (rather than doc.add_page_break()) avoids the
+        # "phantom empty page" caused by a stray break paragraph.
+        intro_year.paragraph_format.page_break_before = True
+        # Glue the year intro to the first course so they share a page.
         intro_year.paragraph_format.keep_with_next = True
 
         for idx, c in enumerate(grouped[y]):
             # every course after the first in a year starts on its own page
-            if idx > 0:
-                doc.add_page_break()
-            _course_table(doc, c)
+            _course_table(doc, c, page_break_before=(idx > 0))
+        first_year = False
 
     return doc
 
