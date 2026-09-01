@@ -940,11 +940,18 @@ def build_document(cover, courses, years, logo_path=None):
         # Glue the year intro to the first course so they share a page.
         intro_year.paragraph_format.keep_with_next = True
 
-        for idx, c in enumerate(grouped[y]):
-            # Every course after the first in a year starts on its own
-            # page. The first course of each year shares the page with
-            # the year intro (via intro_year's keep_with_next).
-            _course_table(doc, c, page_break_before=(idx > 0))
+        for c in grouped[y]:
+            # Courses flow naturally within the year — only the year intro
+            # gets a page break (set on intro_year above). This matches
+            # the manual reference layout: multiple short courses can
+            # share a page within the same academic year.
+            _course_table(doc, c, page_break_before=False)
+            # Two blank paragraphs after each course table so successive
+            # courses don't look like one merged table (the previous
+            # course's bottom border was directly touching the next
+            # course's top border).
+            _tight(doc.add_paragraph())
+            _tight(doc.add_paragraph())
         first_year = False
 
     return doc
