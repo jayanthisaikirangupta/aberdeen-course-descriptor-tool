@@ -240,6 +240,29 @@ def _section_lines(content, keywords, section_label=""):
             if t and n and n not in seen_norm:
                 seen_norm.add(n)
                 out.append("\u2022 " + t)
+        elif el.name == "div":
+            # Some older catalogue pages (e.g. PS1509 2020-2021) put the
+            # section content directly inside a <div> with no <p>/<li>.
+            # Only treat LEAF divs as content \u2014 a div that already contains
+            # a block-level child (p/li/ul/ol/table/div/heading) will be
+            # walked into on subsequent iterations and would double-count.
+            if el.find(["h2", "h3", "h4", "h5", "p", "li", "ul", "ol",
+                        "table", "div"]):
+                continue
+            t = el.get_text(" ", strip=True)
+            if not t:
+                continue
+            if _looks_like_footer(t):
+                break
+            n = _norm(t)
+            if not n:
+                continue
+            if label_norm and n == label_norm:
+                continue
+            if _is_covered_by_prior(n):
+                continue
+            seen_norm.add(n)
+            out.append(t)
     return out
 
 
